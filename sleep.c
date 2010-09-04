@@ -109,14 +109,6 @@ void nodeSleep(u16 tenthSeconds)
     
 */
 
-        // Turn off ADC
-//        if (ADC_ENABLED)
-        {
-            //            HAL_WAIT_ADC();
- //           HAL_STOP_ADC();
-        }
-
-
 
     // ************** Set the timer to wake up
 	// Set TIMER2 Asyncronous Mode.
@@ -184,7 +176,7 @@ void nodeSleep(u16 tenthSeconds)
         serial_init(NULL);
 
     debugMsgStr("\r\nNode slept");
-    if (ADC_ENABLED && macConfig.associated)
+    if ( macConfig.associated)
         HAL_ADC_INIT();
 
     // Bring SPI port back up (must re-init after sleep)

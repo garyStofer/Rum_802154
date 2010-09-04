@@ -119,27 +119,8 @@ static u8 scanChannel=ALL_CHANNELS;
       network.
 */
 
-/**
-      This will store the actual beacon data into the pan
-    descriptor list after the appropriate pan conditions have been
-    met.  See   mac_logPanDescriptors().
-*/
-static void
-store_pandescriptors(void)
-{
-    ftBeacon *frame = (ftBeacon *)(mac_buffer_rx+1);
-    u8 lqi = ((rx_frame_t *)mac_buffer_rx)->lqi;
-    debugMsgStr("\r\n!Pandesc");
-    // Gather the pan descriptor data and retain the strongest link in the scan process.
-    panDescriptor.coorAddrMode = frame->fcf >> 14;
-    panDescriptor.coorPANId = frame->panid;
-    panDescriptor.coordAddr = frame->addr;
-    panDescriptor.hopsToCoord = frame->hops;
-    panDescriptor.logicalChannel = macConfig.currentChannel - 1;
-    panDescriptor.channelPage = CHANNEL_PAGE_0;
-    panDescriptor.lqi = lqi;
-    panDescriptor.rssi = radioGetSavedRssiValue();
-}
+
+
 /**
    Send a beacon request frame.  The MAC must be previously
    initialized, and the channel set to a valid value.  The beacon
@@ -163,120 +144,34 @@ sendBeaconRequest(void)
     // Send the frame via radio
     radioSendData(sizeof(ftBeaconReq), (u8*)brFrame);
 }
-/**
-   Reports whether the MAC is currently scanning.  This applies to
-   both coordinator scans and end/router node scans.
 
-   returns:  True if MAC is scanning. False if MAC is not scanning.
+/**
+      This will store the actual beacon data into the pan
+    descriptor list after the appropriate pan conditions have been
+    met.  See   mac_logPanDescriptors().
 */
-u8
-macIsScanning(void)
+# if(NODETYPE != COORD)
+static void
+store_pandescriptors(void)
 {
-    return scanInProcess;
+    ftBeacon *frame = (ftBeacon *)(mac_buffer_rx+1);
+    u8 lqi = ((rx_frame_t *)mac_buffer_rx)->lqi;
+    debugMsgStr("\r\nStore Pandesc");
+    // Gather the pan descriptor data and retain the strongest link in the scan process.
+    panDescriptor.coorAddrMode = frame->fcf >> 14;
+    panDescriptor.coorPANId = frame->panid;
+    panDescriptor.coordAddr = frame->addr;
+    panDescriptor.hopsToCoord = frame->hops;
+    panDescriptor.logicalChannel = macConfig.currentChannel - 1;
+    panDescriptor.channelPage = CHANNEL_PAGE_0;
+    panDescriptor.lqi = lqi;
+    panDescriptor.rssi = radioGetSavedRssiValue();
 }
 
-/**
-   Sets a specific single channel to scan, or all channels.  Note that
-     PAN_CHANNEL must not be set as a compiler command line
-   argument in order for all channels to be scanned.
-
-   param:  channel The single channel to scan, or ALL_CHANNELS to scan
-   all channels.
-*/
-void
-macSetScanChannel(u8 channel)
-{
-    scanChannel = channel;
-}
+#endif
 
 /**
-   Returns the channel set by   macSetScanChannel().
 
-   returns:  The channel set by   macSetScanChannel().
-*/
-u8
-macGetScanChannel(void)
-{
-    return scanChannel;
-}
-
-
-
-/**
-   Scan channels for coordinators. Reads the scanChannel variable, and
-   scans either the channel in scanChannel, or all channels.  This is
-   the scan function for routers and end nodes, searching for a
-   prospective parent node.
-
-   This function calls itself via a mac alarm callback. The timer
-   callback will re-enter the function after the   SCANDURATION
-   timeout.
-
-   When the entire scan is complete, the mac_scanConfirm() function is called.
-*/
-void
-macScan(void)
-{
-    // Check for fixed channel
-    if (PAN_CHANNEL != CHANNEL255)
-        macSetScanChannel(PAN_CHANNEL);
-
-    // Set up some varibles on the initial call to macScan()
-    if (0xFF == macConfig.currentChannel)
-    {
-        scanInProcess = true;
-
-        // Reset the variables.
-        memset(&panDescriptor, 0, sizeof(panDescriptor_t));
-
-        // logicalChannel is used as flag to show that we received a valid beacon
-        panDescriptor.logicalChannel = 0xff;
-
-        macConfig.currentChannel = MIN_CHANNEL; // First possible channel for RF23x
-
-        // Check for a single pre-defined channel to scan.
-        if (scanChannel != ALL_CHANNELS)
-            macConfig.currentChannel = scanChannel;
-
-        // Display the channel if it's a fixed channel
-        if (PAN_CHANNEL != CHANNEL255)
-        {
-            debugMsgStr("PAN Ch=");
-            debugMsgInt(PAN_CHANNEL);
-        }
-    }
-    else
-        // Not first time through, must sleep very low power nodes.
-        if (VLP && (NODETYPE == ENDDEVICE))
-            nodeSleep(SCAN_SLEEP_TIME);
-
-    // See if we're done scanning
-    if(macConfig.currentChannel > (CHINA_MODE ? 4 : MAX_CHANNEL) || macConfig.currentChannel == scanChannel + 1)
-        {
-            // done scanning
-            scanInProcess = false;
-            macConfig.currentChannel = 0xFF;
-
-            mac_scanConfirm();
-            return;
-        }
-
-    // Set the channel.
-    macSetOperatingChannel(macConfig.currentChannel);
-
-    // Send the beacon request
-    sendBeaconRequest();
-
-    // Beacon was send, increment channel to prepare for the next one.
-    macConfig.currentChannel++;
-
-    // Set the scan duration timer.
-    macSetAlarm(SCANDURATION, macScan);
-    blink_red(10);
-}
-
-/**
-     
     Record the pan description data from a received beacon
     frame in the global   panDescriptor structure. This function
     only stores coordinator information if the beaconing node is
@@ -356,12 +251,148 @@ mac_logPanDescriptors(void)
     }
 #endif
 }
+/**
+   Reports whether the MAC is currently scanning.  This applies to
+   both coordinator scans and end/router node scans.
+
+   returns:  True if MAC is scanning. False if MAC is not scanning.
+*/
+u8
+macIsScanning(void)
+{
+    return scanInProcess;
+}
+
+
+/**
+   Sets a specific single channel to scan, or all channels.  Note that
+     PAN_CHANNEL must not be set as a compiler command line
+   argument in order for all channels to be scanned.
+
+   param:  channel The single channel to scan, or ALL_CHANNELS to scan
+   all channels.
+*/
+void
+macSetScanChannel(u8 channel)
+{
+    scanChannel = channel;
+}
+
+/**
+   Returns the channel set by   macSetScanChannel().
+
+   returns:  The channel set by   macSetScanChannel().
+*/
+u8
+macGetScanChannel(void)
+{
+    return scanChannel;
+}
+
+
 
 
 
 /**
-      Trigger a call to   appScanConfirm(), since the scanning
-    process is done.  If at least one valid beacon was received, then signal that
+   Scan channels for coordinators. Reads the scanChannel variable, and
+   scans either the channel in scanChannel, or all channels.  This is
+   the scan function for routers and end nodes, searching for a
+   prospective parent node.
+
+   This function calls itself via a mac alarm callback. The timer
+   callback will re-enter the function after the   SCANDURATION
+   timeout.
+
+   When the entire scan is complete, the mac_scanConfirm() function is called.
+*/
+# if(NODETYPE != COORD)
+/**
+   Example function, starts the network by scanning channels for a coordinator.
+
+   This node will either scan all available channels, or just one
+   channel if   macSetScanChannel() is called.  @see macScan().
+*/
+
+void macStartScan(void)
+{
+	debugMsgStr("\r\nStart Network scan as a ");
+
+	if	(NODETYPE == ROUTER)
+		debugMsgStr("Router");
+	else if (NODETYPE == ENDDEVICE)
+		debugMsgStr("EndDevice");
+	else
+		debugMsgStr("Broadcast EndDevice");
+
+		macInit(0xff);
+
+		macScan();
+}
+
+void
+macScan(void)
+{
+    // Check for fixed channel
+    if (PAN_CHANNEL != CHANNEL255)
+        macSetScanChannel(PAN_CHANNEL);
+
+    // Set up some variables on the initial call to macScan()
+    if (0xFF == macConfig.currentChannel)
+    {
+        scanInProcess = true;
+
+        // Reset the variables.
+        memset(&panDescriptor, 0, sizeof(panDescriptor_t));
+
+        // logicalChannel is used as flag to show that we received a valid beacon
+        panDescriptor.logicalChannel = 0xff;
+
+        macConfig.currentChannel = MIN_CHANNEL; // First possible channel for RF23x
+
+        // Check for a single pre-defined channel to scan.
+        if (scanChannel != ALL_CHANNELS)
+            macConfig.currentChannel = scanChannel;
+
+        // Display the channel if it's a fixed channel
+        if (PAN_CHANNEL != CHANNEL255)
+        {
+            debugMsgStr("PAN Ch=");
+            debugMsgInt(PAN_CHANNEL);
+        }
+    }
+    else
+        // Not first time through, must sleep very low power nodes.
+        if (VLP && (NODETYPE == ENDDEVICE))
+            nodeSleep(SCAN_SLEEP_TIME);
+
+    // See if we're done scanning
+    if(macConfig.currentChannel > (CHINA_MODE ? 4 : MAX_CHANNEL) || macConfig.currentChannel == scanChannel + 1)
+        {
+            // done scanning
+            scanInProcess = false;
+            macConfig.currentChannel = 0xFF;
+
+            mac_scanConfirm();
+            return;
+        }
+
+    // Set the channel.
+    macSetOperatingChannel(macConfig.currentChannel);
+
+    // Send the beacon request
+    sendBeaconRequest();
+
+    // Beacon was send, increment channel to prepare for the next one.
+    macConfig.currentChannel++;
+
+    // Set the scan duration timer.
+    macSetAlarm(SCANDURATION, macScan);
+    blink_red(10);
+}
+
+/**
+    Trigger a call to appScanConfirm(), since the scanning process is done.
+    If at least one valid beacon was received, then signal that
     success to the application.
 */
 void
@@ -383,18 +414,54 @@ mac_scanConfirm(void)
 
         // We are one hop more than our (prospective) parent
         macConfig.hopsToCoord = panDescriptor.hopsToCoord + 1;
-    }
-    // Confirm the scan, only if we have a valid coordinator
-    appScanConfirm(gotbeacon);
-}
 
+        debugMsgStr("\r\nScan good, selecting chan: ");
+		debugMsgInt(panDescriptor.logicalChannel);
+		debugMsgStr(" and  PANID = 0x");
+		debugMsgHex(panDescriptor.coorPANId);
+
+		if (NODETYPE != BC_ENDDEVICE ) 	// associate with coordinator/router to get a unique address,  unless we are a Broadcast only device
+		{
+			macAssociate(panDescriptor.coordAddr, panDescriptor.logicalChannel);
+
+		    if ( panDescriptor.coordAddr == 0)
+		    	debugMsgStr("\r\nAssociating to Coordinator");
+		    else
+		    {
+		    	debugMsgStr("\r\nAssociating via Router ");
+		    	debugMsgHex(panDescriptor.coordAddr);
+		    	debugMsgStr(", Hops = ");
+		    	debugMsgInt(panDescriptor.hopsToCoord+1 );
+		    }
+		    debugMsgStr(", with RSSI = ");  debugMsgInt(panDescriptor.rssi);
+
+		}
+    }
+    else
+    {
+        // failure to find a network
+		 if (VLP)
+		 {
+			 // Try again after sleeping for 10 seconds
+			 nodeSleep(100);
+			 macStartScan ();
+		 }
+		 else
+		 macSetAlarm(1000,macStartScan);
+		 debugMsgStr("\r\nScan bad");
+     }
+
+}
+#endif
+
+#if (NODETYPE == COORD)
 /**
    Callback function, called from timer set in macFindClearChannel().
    This function tallies the results from an energy scan on one
    channel, and manages the channel change for the energy scan.
 */
 
-#if (NODETYPE == COORD)
+
 static void
 energyScanCallback(void)
 {
@@ -466,6 +533,7 @@ energyScanCallback(void)
 }
 #endif
 
+
 /**
     
    Callback function, called by the radio ISR function when the
@@ -486,6 +554,7 @@ macEdCallback(void)
     }
 #endif
 }
+
 
 
 /**

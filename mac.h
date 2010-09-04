@@ -126,7 +126,7 @@ Router/End node             Frame type over the air                 Coordinator
                                   Scan channels
                                 (For each channel)
 
-appStartScan()
+macStartScan()
 macScan()                 --->   ftBeaconReq      --->        macTask()
 
 mac_logPanDescriptors()   <---     ftBeacon       <---        sendBeaconFrame()
@@ -284,17 +284,15 @@ extern char dbg_buff[40];
     @{
 */
 
-#define COORD     1  ///< Coordinator node
-#define ROUTER    2  ///< Router node
-#define ENDDEVICE 3  ///< End node
-
-
+#define COORD     		1  // Coordinator node
+#define ROUTER    		2  // Router node
+#define ENDDEVICE 		3  // End node
+#define BC_ENDDEVICE   	4  // BroadCast Only enddevice -- not fully associated
 /**
    The coordinator's short address, always zero
    @ingroup mac
 */
 #define DEFAULT_COORD_ADDR      0x0000
-#define DEFAULT_ARM_COORD_LONG  0xAABBCCDDEEFF1122ll
 
 // Define whether we are a coordinator or not.
 // This affects compilation
@@ -319,35 +317,18 @@ extern char dbg_buff[40];
 
     To define the NODETYPE variable, define one of the following
     variables (as one) in the Makefile or AVR Studio project setting.
-
-    - COORDNODE
-    - ROUTER
-    - ENDNODE
+	NODETYPE = ENDDEVICE
+    NODETYPE = ROUTER
+    NODETYPE = COORD
+    NODETYPE = BC_ENDDEVICE
     @ingroup mac
 */
 
 
-
-#ifdef COORDNODE
-  #define NODETYPE COORD
-#endif
-#ifdef ENDNODE
-  #define NODETYPE ENDDEVICE
-#endif
-#ifdef ROUTERNODE
-  #define NODETYPE ROUTER
-#endif
-
-
-#ifndef NODETYPE
+#if ( NODETYPE!=ENDDEVICE &&  NODETYPE!=ROUTER &&  NODETYPE!=COORD && NODETYPE != BC_ENDDEVICE )
 // Warning - NODETYPE must be defined
-#error "You must define one of COORDNODE, ROUTERNODE, or ENDNODE to specify which"
-#error "target you are compiling for.  With AVR Studio, make sure you"
-#error "have -DCOORDNODE listed under '[All Files]', on custom options"
-#error "tab of the project options dialog."
-#error "With the Makefile for Linux, specify a node type like this:"
-#error "make TYPE=COORD"
-#error "make TYPE=END"
+#error "You must #define  NODETYPE to one of ENDDEVICE, ROUTER, BC_ENDDEVICE or COORD to specify which"
+#error "target you are compiling for. Use command line defines."
 #endif
 
 #define HAL_MIN_FRAME_LENGTH   ( 0x03 ) //!< A frame should be at least 3 bytes.

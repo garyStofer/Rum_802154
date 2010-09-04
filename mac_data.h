@@ -35,7 +35,7 @@
 void
 macData_BC_Request( u8 len, u8 * data);
 // Global variables
-void macDataIndication(void);
+void macDataIndication(u16);
 
 void macWakeRequest(u16 addr, u16 child);
 

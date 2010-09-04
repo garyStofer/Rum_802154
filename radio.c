@@ -281,7 +281,7 @@ debugMsgStr(" - NoScan");
 
 			case FCF_ASSOC_REQ_DIRECT:
 				// Association Request, direct
-				if (NODETYPE != ENDDEVICE)
+				if ((NODETYPE == ROUTER || NODETYPE == COORD))
 					event.event = MAC_EVENT_ASSOCIATION_REQUEST;
 				break;
 
@@ -298,7 +298,7 @@ debugMsgStr(" - NoScan");
 
 				case 1:
 					// Association request
-					if (NODETYPE != ENDDEVICE)
+					if (NODETYPE == ROUTER || NODETYPE == COORD)
 						event.event = MAC_EVENT_ASSOCIATION_REQUEST;
 					break;
 
@@ -1104,7 +1104,7 @@ void radioSetExtendedAddress(u8 *extended_address)
  */
 u8 radioRandom(u8 bits)
 {
-    if ((NODETYPE != ENDDEVICE) || APP)
+    if ((NODETYPE == ROUTER || NODETYPE == COORD) || APP)
     {
         volatile u8 val=0;
         volatile u8 regval;

@@ -38,6 +38,7 @@
 #include "mac.h"
 #include "radio.h"
 #include "mac_data.h"
+#include "mac_scan.h"
 #include "mac_route.h"
 #include "mac_associate.h"
 #include "system.h"
@@ -77,7 +78,7 @@ typedef struct {
     u8  buf[128];    // Buffer to store frame in
 } tStoredFrame;
 
-#if (NODETYPE != ENDDEVICE && RUMSLEEP && VLP)
+#if ((NODETYPE == COORD || NODETYPE == ROUTER) && RUMSLEEP && VLP)
 #define STORED_FRAMES  3     // Number of stored frames
 static tStoredFrame storedFrames[STORED_FRAMES ];
 #endif
@@ -99,32 +100,30 @@ mdr_timer(void)
 
     radioSendData(*mac_buffer_tx, (u8*)data_frame);
 }
-
+/*
+ * Broadcast only nodes do not fully associate with the network. They only scan the channels in serach of a network with PANID
+ * as given by the compile define, which can be the broadcast PANID or a specific one.
+ * Upon a sucessful search we have a network channel and a network PANID, which is either the defined PANID or any networks PANID
+ * if the scan was done with a Broadcast PANID to start with.
+ *
+ */
 
 void
 macData_BC_Request( u8 len, u8 * data)
 {
-    // Create a struct pointer to the global variable...
-    ftData *data_frame = (ftData*)(mac_buffer_tx+1);
+    ftData *data_frame = (ftData*)(mac_buffer_tx+1); // Create a struct pointer to the global variable...
 
-// "if !macConfig.associated":
-// Then the node has no short address and no PANID and doesn't know on what channel to transmit yet  --
-// Could use broadcast PANID and fixed chan  if we don't want a BC node to associate at all --
-// or agree on a PANID upfront and use that  PANID instead of one randomly created by the coord -- still on a fixed ch thogh !
-// if all dumb, BC nodes have to fully associte then the associte count would have to be made large.
-// a 1/2 associte would work, where only the PAND ID and PANCH is received through the scan , but no active associtaion takes place.
-
-    if (!macConfig.associated)
+    // if we have not found a channel to broadcast on do nothing
+    if (panDescriptor.logicalChannel  == 0xff)
     	return;
 
     Led1_on();
     debugMsgStr("\r\nmacData_BC_Request->");
 
     // Build the frame.
-    data_frame->fcf =FCF_DATA_NOACK; //FCF Data frame no ACK
+    data_frame->fcf=FCF_DATA_NOACK; //FCF Data frame no ACK -- to prevent multiple acks
     data_frame->seq = macConfig.dsn++;
-    // data_frame->panid = macConfig.panId;
-    data_frame->panid = BROADCASTPANID;
+    data_frame->panid = macConfig.panId;
     data_frame->srcAddr = macConfig.shortAddress;
     data_frame->originAddr = macConfig.shortAddress;
     data_frame->finalDestAddr = BROADCASTADDR;
@@ -276,7 +275,7 @@ macDataRequest(u16 addr, u8 len, u8 * data)
 void
 macWakeRequest(u16 addr, u16 child)
 {
-    if (NODETYPE != ENDDEVICE)
+    if (NODETYPE == ROUTER || NODETYPE== COORD)
     {
         macDataRequestInt(addr, 2, (u8*)&child, WAKE_NODE);
     }
@@ -322,18 +321,19 @@ macsixlowpanDataRequest(u16 addr, u8 len, u8 * data)
    contents.
 */
 void
-macDataIndication(void)
+macDataIndication(u16 dest)
 {
     // Sort out the different types of data packets.
-    ftData *frame = (ftData*)(mac_buffer_rx+1);
+   ftData *frame = (ftData*)(mac_buffer_rx+1);
+   u8 pl_len = *mac_buffer_rx - 16;
 
     debugMsgStr("\r\nmacDataIndication<-");
 
     switch (frame->type & 0x7f)  // Mask high bit just in case it was somehow missed
     {
 		case DATA_FRAME:
-			// Plain old data, send it up the chain
-			appDataIndication();
+			// Data, send it up the chain
+			appDataIndication(frame->payload, pl_len, (dest ==  BROADCASTADDR));
 			break;
 
 		case DEBUG_FRAME:
@@ -366,7 +366,7 @@ macDataIndication(void)
 					// Set the flag to wake up the end node when it sends a packet
 					macWakeChildNode(addr);
 			}
-			if (NODETYPE == ENDDEVICE)
+			if (NODETYPE == ENDDEVICE) /* also include BC_ENDDEVICE ?*/
 			{
 				// Wake yourself up now
 				macConfig.sleeping = false;
@@ -398,7 +398,7 @@ macDataIndication(void)
 		case DATA_FRAME_6LOWPAN:
 			//6lowpan data indication
 			if (IPV6LOWPAN == 1)
-				sixlowpan_DataIndication(frame, *mac_buffer_rx - 16);
+				sixlowpan_DataIndication(frame, pl_len);
 			break;
 
 		default:
@@ -500,7 +500,7 @@ macPing(u8 pingTypeArg, u16 addr)
 void
 macHoldFrame(u16 addr, u8 *buf, u8 len)
 {
-#   if (NODETYPE != ENDDEVICE && RUMSLEEP && VLP)
+#   if ((NODETYPE == ROUTER || NODETYPE == COORD) && RUMSLEEP && VLP)
     {
         u8 i,done=0;
 
@@ -539,7 +539,7 @@ macHoldFrame(u16 addr, u8 *buf, u8 len)
 */
 void macSendStoredFrame(u16 addr)
 {
-#   if (NODETYPE != ENDDEVICE && RUMSLEEP && VLP)
+#   if ((NODETYPE == ROUTER || NODETYPE == COORD) && RUMSLEEP && VLP)
     {
         u8 i;
 

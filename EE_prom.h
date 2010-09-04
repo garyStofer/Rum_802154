@@ -21,7 +21,7 @@ typedef struct{
 typedef struct {
     u8 eepromMacAddress[8];      ///< The node's unique IEEE MAC address
     tCalFactors calFactors;      ///< The node's calibration data (see sensor.h)
-    u16 frameInterval;           ///< The number of tenth seconds between data readings (see sensor.h)
+    u16 SensorframeInterval;           ///< The number of tenth seconds between data readings (see sensor.h)
 } tEepromContents;
 
 /**
@@ -35,9 +35,8 @@ typedef struct {
                                        p)
 #define  halSaveCalFactors(p) halPutEeprom((u8*)offsetof(tEepromContents, calFactors), sizeof(tCalFactors),(u8*) p)
 #define  halGetCalFactors(p)  halGetEeprom((u8*)offsetof(tEepromContents, calFactors), sizeof(tCalFactors),(u8*) p)
-#define  halGetFrameInterval(p)    halGetEeprom((u8*)offsetof(tEepromContents, frameInterval), \
-                                       sizeof(typeof(((tEepromContents*)0)->frameInterval)), (u8*) p)
-#define  halSaveFrameInterval(p)   halPutEeprom((u8*)offsetof(tEepromContents, frameInterval), \
-                                       sizeof(typeof(((tEepromContents*)0)->frameInterval)),  (u8*)p)
 
+
+extern void halSetFrameInterval(u16 );
+extern u16  halGetFrameInterval(void);
 extern void checkEeprom(void);

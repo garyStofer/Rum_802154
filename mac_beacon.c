@@ -46,7 +46,7 @@
 void
 sendBeaconFrame(void)
 {
-#   if (NODETYPE != ENDDEVICE)
+#   if (NODETYPE == ROUTER || NODETYPE== COORD)
     {
     	blink_blue(25);
         ftBeacon* data_frame = (ftBeacon*)(mac_buffer_tx+1);

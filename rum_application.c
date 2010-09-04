@@ -53,8 +53,6 @@
 #include "EE_prom.h"
 
 
-
-
 #define tuip_init_802154(a, b)
 //#include <avr/eeprom.h>
 // You can program the EEPROM with macaddress this way, using an ELF file
@@ -85,8 +83,6 @@ extern uint8_t serveripAddr[];
 static u8 streamMode=0;        ///< Are we in streaming mode?
 #endif
 
-
-
 /**
    @addtogroup app
    @{
@@ -109,7 +105,7 @@ static u8 streamMode=0;        ///< Are we in streaming mode?
    When a router or end node starts, it connects to the network using
    these steps:
 
-   - appStartScan() is called, which scans all available channels,
+   - macStartScan() is called, which scans all available channels,
      issuing a beacon request frame on each channel.
 
    - When the scan is complete, appScanConfirm() is called with an
@@ -139,14 +135,107 @@ static u8 streamMode=0;        ///< Are we in streaming mode?
    function, which can then process the incoming data.
 */
 
-#define TRACKDEMO 0
+#if DEBUG
+/**
+      This is an array of radio register names for serial output
+           used when rf2xx_reg_dump() is called.  See the radio
+           datasheet for details.
+*/
+static const char R_1[]  PROGMEM="TRX_STATUS";
+static const char R_2[]  PROGMEM="TRX_STATE";
+static const char R_3[]  PROGMEM="TRX_CTRL_0";
+static const char R_4[]  PROGMEM="TRX_CTRL_1";
+static const char R_5[]  PROGMEM="PHY_TX_PWR";
+static const char R_6[]  PROGMEM="PHY_RSSI";
+static const char R_7[]  PROGMEM="PHY_ED_LEVEL";
+static const char R_8[]  PROGMEM="PHY_CC_CCA";
+static const char R_9[]  PROGMEM="CCA_THRES";
+static const char R_10[] PROGMEM="TRX_CTRL_2";
+static const char R_11[] PROGMEM="IRQ_MASK";
+static const char R_12[] PROGMEM="IRQ_STATUS";
+static const char R_13[] PROGMEM="VREG_CTRL";
+static const char R_14[] PROGMEM="BATMON";
+static const char R_15[] PROGMEM="XOSC_CTRL";
+static const char R_16[] PROGMEM="RX_SYN";
+static const char R_17[] PROGMEM="RF_CTRL_0";
+static const char R_18[] PROGMEM="XAH_CTRL_1";
+static const char R_19[] PROGMEM="FTN_CTRL";
+static const char R_20[] PROGMEM="RF_CTRL_1";
+static const char R_21[] PROGMEM="PLL_CF";
+static const char R_22[] PROGMEM="PLL_DCU";
+static const char R_23[] PROGMEM="PART_NUM";
+static const char R_24[] PROGMEM="VERSION_NUM";
+static const char R_25[] PROGMEM="MAN_ID_0";
+static const char R_26[] PROGMEM="MAN_ID_1";
+static const char R_27[] PROGMEM="SHORT_ADDR_0";
+static const char R_28[] PROGMEM="SHORT_ADDR_1";
+static const char R_29[] PROGMEM="PAN_ID_0";
+static const char R_30[] PROGMEM="PAN_ID_1";
+static const char R_31[] PROGMEM="IEEE_ADDR_0";
+static const char R_32[] PROGMEM="IEEE_ADDR_1";
+static const char R_33[] PROGMEM="IEEE_ADDR_2";
+static const char R_34[] PROGMEM="IEEE_ADDR_3";
+static const char R_35[] PROGMEM="IEEE_ADDR_4";
+static const char R_36[] PROGMEM="IEEE_ADDR_5";
+static const char R_37[] PROGMEM="IEEE_ADDR_6";
+static const char R_38[] PROGMEM="IEEE_ADDR_7";
+static const char R_39[] PROGMEM="XAH_CTRL_0";
+static const char R_40[] PROGMEM="CSMA_SEED_0";
+static const char R_41[] PROGMEM="CSMA_SEED_1";
+static const char R_42[] PROGMEM="CSMA_BE";
+
+static char * rf2xx_reg_names[] PROGMEM = {R_1, R_2, R_3, R_4, R_5, R_6, R_7, R_8, R_9, R_10,
+							 R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18, R_19, R_20,
+							 R_21, R_22, R_23, R_24, R_25, R_26, R_27, R_28, R_29, R_30,
+							 R_31, R_32, R_33, R_34, R_35, R_36, R_37, R_38, R_39, R_40,
+							 R_41, R_42 };
+
+/**
+      This is an array of radio register values to be used when
+           rf2xx_reg_dump() is called.  See the radio datasheet for
+           details.
+*/
+static u8 rf2xx_reg_enum[] PROGMEM =
+    {RG_TRX_STATUS, RG_TRX_STATE, RG_TRX_CTRL_0, RG_TRX_CTRL_1, RG_PHY_TX_PWR,
+     RG_PHY_RSSI, RG_PHY_ED_LEVEL, RG_PHY_CC_CCA, RG_CCA_THRES, RG_TRX_CTRL_2, RG_IRQ_MASK,
+     RG_IRQ_STATUS, RG_VREG_CTRL, RG_BATMON, RG_XOSC_CTRL, RG_RX_SYN, RG_RF_CTRL_0, RG_XAH_CTRL_1,
+     RG_FTN_CTRL, RG_RF_CTRL_0, RG_PLL_CF, RG_PLL_DCU, RG_PART_NUM, RG_VERSION_NUM, RG_MAN_ID_0,
+     RG_MAN_ID_1, RG_SHORT_ADDR_0, RG_SHORT_ADDR_1, RG_PAN_ID_0, RG_PAN_ID_1,
+     RG_IEEE_ADDR_0, RG_IEEE_ADDR_1, RG_IEEE_ADDR_2, RG_IEEE_ADDR_3, RG_IEEE_ADDR_4,
+     RG_IEEE_ADDR_5, RG_IEEE_ADDR_6, RG_IEEE_ADDR_7, RG_XAH_CTRL_0, RG_CSMA_SEED_0,
+     RG_CSMA_SEED_1, RG_CSMA_BE};
+#endif
+
+/**
+      Dumps the RF2xx register contents to serial port.
+
+    Note: The serial output will only be available if the   DEBUG
+    macro is defined as non-zero.
+*/
+/*
+void test_dump()
+{
+
+#if  DEBUG && SERIAL
+	int i ;
+	volatile int val ;
+	for (i = 0; i<10; i++ )
+	{
+		    val =  pgm_read_byte(&rf2xx_reg_enum[i]);
+			serial_puts_P((char*) pgm_read_word(&rf2xx_reg_names[i]));
+	     	sprintf(debugStr,strcpy_P(dbg_buff, PSTR(" - %02X ")),  i);
+            debugMsgStr_d(debugStr);
+			debugMsgCrLf();
+	}
+#endif
+}
+*/
 
 // Application variables
 static u8 failCount;  ///< Number of transmit-to-parent failures before re-scanning.
 volatile u8 gotPanCoordPing;
 
 // Function declarations
-void appStartScan(void);
 void ledcallback(void);
 void sixlowpan_button(void);
 
@@ -315,7 +404,7 @@ void appPacketSendFailed(void)
         if (++failCount < 8)
         {
             // Tell sensor app
-#            if (APP == SENSOR)
+#			if (APP == SENSOR)
                 sensorPacketSendFailed();
 #			endif
             return;
@@ -337,7 +426,7 @@ void appPacketSendFailed(void)
 #if (APP == SENSOR)
                 sensorLostNetwork();
 #endif
-            macSetAlarm((radioRandom(8)+5) *10, appStartScan);
+            macSetAlarm((radioRandom(8)+5) *10, macStartScan);
         }
         if (NODETYPE == ROUTER &&
             macIsChild(macConfig.lastDestAddr))
@@ -350,105 +439,9 @@ void appPacketSendFailed(void)
 
 }
 
-#if DEBUG
-/**
-      This is an array of radio register names for serial output
-           used when rf2xx_reg_dump() is called.  See the radio
-           datasheet for details.
-*/
 
-
-
-static const char R_1[]  PROGMEM="TRX_STATUS";
-static const char R_2[]  PROGMEM="TRX_STATE";
-static const char R_3[]  PROGMEM="TRX_CTRL_0";
-static const char R_4[]  PROGMEM="TRX_CTRL_1";
-static const char R_5[]  PROGMEM="PHY_TX_PWR";
-static const char R_6[]  PROGMEM="PHY_RSSI";
-static const char R_7[]  PROGMEM="PHY_ED_LEVEL";
-static const char R_8[]  PROGMEM="PHY_CC_CCA";
-static const char R_9[]  PROGMEM="CCA_THRES";
-static const char R_10[] PROGMEM="TRX_CTRL_2";
-static const char R_11[] PROGMEM="IRQ_MASK";
-static const char R_12[] PROGMEM="IRQ_STATUS";
-static const char R_13[] PROGMEM="VREG_CTRL";
-static const char R_14[] PROGMEM="BATMON";
-static const char R_15[] PROGMEM="XOSC_CTRL";
-static const char R_16[] PROGMEM="RX_SYN";
-static const char R_17[] PROGMEM="RF_CTRL_0";
-static const char R_18[] PROGMEM="XAH_CTRL_1";
-static const char R_19[] PROGMEM="FTN_CTRL";
-static const char R_20[] PROGMEM="RF_CTRL_1";
-static const char R_21[] PROGMEM="PLL_CF";
-static const char R_22[] PROGMEM="PLL_DCU";
-static const char R_23[] PROGMEM="PART_NUM";
-static const char R_24[] PROGMEM="VERSION_NUM";
-static const char R_25[] PROGMEM="MAN_ID_0";
-static const char R_26[] PROGMEM="MAN_ID_1";
-static const char R_27[] PROGMEM="SHORT_ADDR_0";
-static const char R_28[] PROGMEM="SHORT_ADDR_1";
-static const char R_29[] PROGMEM="PAN_ID_0";
-static const char R_30[] PROGMEM="PAN_ID_1";
-static const char R_31[] PROGMEM="IEEE_ADDR_0";
-static const char R_32[] PROGMEM="IEEE_ADDR_1";
-static const char R_33[] PROGMEM="IEEE_ADDR_2";
-static const char R_34[] PROGMEM="IEEE_ADDR_3";
-static const char R_35[] PROGMEM="IEEE_ADDR_4";
-static const char R_36[] PROGMEM="IEEE_ADDR_5";
-static const char R_37[] PROGMEM="IEEE_ADDR_6";
-static const char R_38[] PROGMEM="IEEE_ADDR_7";
-static const char R_39[] PROGMEM="XAH_CTRL_0";
-static const char R_40[] PROGMEM="CSMA_SEED_0";
-static const char R_41[] PROGMEM="CSMA_SEED_1";
-static const char R_42[] PROGMEM="CSMA_BE";
-
-static char * rf2xx_reg_names[] PROGMEM = {R_1, R_2, R_3, R_4, R_5, R_6, R_7, R_8, R_9, R_10,
-							 R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18, R_19, R_20,
-							 R_21, R_22, R_23, R_24, R_25, R_26, R_27, R_28, R_29, R_30,
-							 R_31, R_32, R_33, R_34, R_35, R_36, R_37, R_38, R_39, R_40,
-							 R_41, R_42 };
-
-/**
-      This is an array of radio register values to be used when
-           rf2xx_reg_dump() is called.  See the radio datasheet for
-           details.
-*/
-static u8 rf2xx_reg_enum[] PROGMEM =
-    {RG_TRX_STATUS, RG_TRX_STATE, RG_TRX_CTRL_0, RG_TRX_CTRL_1, RG_PHY_TX_PWR,
-     RG_PHY_RSSI, RG_PHY_ED_LEVEL, RG_PHY_CC_CCA, RG_CCA_THRES, RG_TRX_CTRL_2, RG_IRQ_MASK,
-     RG_IRQ_STATUS, RG_VREG_CTRL, RG_BATMON, RG_XOSC_CTRL, RG_RX_SYN, RG_RF_CTRL_0, RG_XAH_CTRL_1,
-     RG_FTN_CTRL, RG_RF_CTRL_0, RG_PLL_CF, RG_PLL_DCU, RG_PART_NUM, RG_VERSION_NUM, RG_MAN_ID_0,
-     RG_MAN_ID_1, RG_SHORT_ADDR_0, RG_SHORT_ADDR_1, RG_PAN_ID_0, RG_PAN_ID_1,
-     RG_IEEE_ADDR_0, RG_IEEE_ADDR_1, RG_IEEE_ADDR_2, RG_IEEE_ADDR_3, RG_IEEE_ADDR_4,
-     RG_IEEE_ADDR_5, RG_IEEE_ADDR_6, RG_IEEE_ADDR_7, RG_XAH_CTRL_0, RG_CSMA_SEED_0,
-     RG_CSMA_SEED_1, RG_CSMA_BE};
-#endif
-
-/**
-      Dumps the RF2xx register contents to serial port.
-
-    Note: The serial output will only be available if the   DEBUG
-    macro is defined as non-zero.
-*/
-/*
-void test_dump()
-{
-
-#if  DEBUG && SERIAL
-	int i ;
-	volatile int val ;
-	for (i = 0; i<10; i++ )
-	{
-		    val =  pgm_read_byte(&rf2xx_reg_enum[i]);
-			serial_puts_P((char*) pgm_read_word(&rf2xx_reg_names[i]));
-	     	sprintf(debugStr,strcpy_P(dbg_buff, PSTR(" - %02X ")),  i);
-            debugMsgStr_d(debugStr);
-			debugMsgCrLf();
-	}
-#endif
-}
-*/
-void rf2xx_reg_dump(void)
+void
+rf2xx_reg_dump(void)
 {
 #if  DEBUG && SERIAL
     {
@@ -485,7 +478,8 @@ void rf2xx_reg_dump(void)
    This can be used for testing the network.  To send a real data
    frame, use macDataRequest().
  */
-void appSendDataFrameTest(void)
+void
+appSendDataFrameTest(void)
 {
     // send data frames once per second
     if (NODETYPE != COORD)
@@ -506,60 +500,31 @@ void appSendDataFrameTest(void)
    ftData *frame = (ftData *)(mac_buffer+1);
    @endcode
  */
-void appDataIndication(void)
+void
+appDataIndication(u8 * payload, u8 len, bool Broadcast)
 {
     // Write app code here -- This node has received a data frame.
-
     // Example code:
-
-    // Find out the type of packet
-    ftData *frame = (ftData *)(mac_buffer_rx+1);
-    debugMsgStr("appDataIndication->");
-    if (frame->type == DATA_FRAME)
-    {
-        // Flash LED when we get a packet back
-    	blink_blue(LED_DELAY);
-
-        // pass data to application
-#if (APP == SENSOR)
-            sensorRcvPacket(frame->payload);
-#else
-            // Default application
-            if (DEBUG)
-            {
-                // Print data in frame to serial port (streaming mode)
-                u8 n = *mac_buffer_rx - 16;
-                // Terminate the string
-                frame->payload[n] = 0;
-                // and print it
-                debugMsgStr_d((char *)(frame->payload));
-            }
+	debugMsgStr("appDataIndication->");
+	blink_blue(LED_DELAY);
+// TODO: this should be it's own function dealing with all Broadcast frames
+	 if( Broadcast)
+	 {
+		 debugMsgStr("Broadcst from ");
+		 tBC_Data * BC_Frame_data = (tBC_Data *) payload;
+		 debugMsgInt(BC_Frame_data->SensorUnitID );
+		 debugMsgStr(" Stype ");
+		 debugMsgInt(BC_Frame_data->Readings[0].SensorType );
+		 debugMsgStr(" ADC0 = ");
+		 debugMsgInt(BC_Frame_data->Readings[0].ADC_Value );
+	 }
+	 else
+	 {
+#if (APP == SENSOR  && NODETYPE == COORD)	// pass data to application
+		 CoordRcvSensorPacket(payload, len);
 #endif
-    }
+	 }
 }
-
-/**
-   Example function, starts the network by scanning channels for a coordinator.
-
-   This node will either scan all available channels, or just one
-   channel if   macSetScanChannel() is called.  @see macScan().
-*/
-void appStartScan(void)
-{
-    if(NODETYPE != COORD)
-    {
-
-        debugMsgStr("\r\nStart Network scan");
-
-        macInit(0xff);
-
-        macScan();
-    }
-
-    if (IPV6LOWPAN == 1)
-        sixlowpan_application_init();
-}
-
 /**
    Callback function, called when the MAC has associated a child of
    this node to the network.
@@ -568,7 +533,8 @@ void appStartScan(void)
    has been associated.  The MAC stores this address, so the
    application should not have to.
 */
-void appChildAssociated(u16 shortAddress)
+void
+appChildAssociated(u16 shortAddress)
 {
     // Blip the LED when we associate a child
     debugMsgStr("\r\n!App Child Associated");
@@ -582,10 +548,13 @@ void appChildAssociated(u16 shortAddress)
    param:  shortAddress The short address assigned to the new node.  The
    MAC stores this address, so the application should not have to.
 */
-void appNodeAssociated(u16 shortAddress)
+void
+appNodeAssociated(u16 shortAddress)
 {
 	debugMsgStr("\r\n!App NODE Associated");
 }
+
+# if(NODETYPE != COORD)
 
 /**
    Callback function, called when the MAC receives an association
@@ -594,81 +563,36 @@ void appNodeAssociated(u16 shortAddress)
    param:  success True if an association packet was received, or false
    if the association process timed out.
 */
-void appAssociateConfirm(bool associated)
+
+void
+appAssociateConfirm(bool associated)
 {
-    if(NODETYPE != COORD)
-    {
-        if (associated)
-        {
-            // send data frame after a bit
-            debugMsgStr("\r\nAssociated to Dev ");
-            debugMsgHex(macConfig.parentShortAddress);
-            debugMsgStr(" as ");
-            debugMsgHex(macConfig.shortAddress);
+	if (associated)
+	{
+		blink_blue(200);
 
-            blink_blue(200);
+		/* 6lowpan association */
+		if (IPV6LOWPAN == 1)
+			sixlowpan_hc01_gen_rs();
 
+		// If we are auto-sending data, start that process.
+		if (APP == SENSOR )
+                SensorStartReadings();	// init measurment sensors and start sending data to COORD
 
-            /* 6lowpan association */
-            if (IPV6LOWPAN == 1)
-                sixlowpan_hc01_gen_rs();
+	}
+	else
+	{
+		if (VLP)
+		{
+			// Sleep for 10 seconds, try again
+			nodeSleep(100);
+			macStartScan();
+		}
+		else
+			// Try again in one second
+		macSetAlarm(1000, macStartScan);
+	}
 
-            // If we are auto-sending data, start that process.
-#if (APP == SENSOR && NODETYPE != COORD)
-            {
-//                sensorInit();	// init measurment sensors and start sending data to COORD
-            }
-#endif
-#if TRACKDEMO
-            // Track Demo Application
-            if (NODETYPE == ENDDEVICE)
-            {
-                // Re-associate every second
-                macSetAlarm(1000, appStartScan);
-            }
-#endif
-        }
-        else
-        {
-            debugMsgStr("\r\nFailed to associate");
-
-            if (VLP)
-            {
-                // Sleep for 10 seconds, try again
-                nodeSleep(100);
-                appStartScan();
-            }
-            else
-                // Try again in one second
-            macSetAlarm(1000, appStartScan);
-        }
-    }
-}
-
-/**
-   Sample application function, associates this node to a network.
-   This function is called after a successful   macScan.
-*/
-void appAssociate(void)
-{
-
-    if ( panDescriptor.coordAddr == 0)
-    	debugMsgStr("\r\nAssociating to Coordinator");
-    else
-    {
-    	debugMsgStr("\r\nAssociating to Router ");
-    	debugMsgHex(panDescriptor.coordAddr);
-    }
-    debugMsgStr(" on ch ");
-    debugMsgInt(panDescriptor.logicalChannel);
-    debugMsgStr(", Hops = ");
-    debugMsgInt(panDescriptor.hopsToCoord+1 );
-    debugMsgStr(", with RSSI = ");
-    debugMsgInt(panDescriptor.rssi);
-    debugMsgStr(", PANID = 0x");
-    debugMsgHex(panDescriptor.coorPANId);
-
-    macAssociate(panDescriptor.coordAddr, panDescriptor.logicalChannel);
 }
 
 /**
@@ -680,36 +604,10 @@ void appAssociate(void)
 void
 appScanConfirm(u8 success)
 {
-    // Write app code here -- This (end) node has finished its scan,
+    // Write app code here -- This  node has finished its scan,
     // and has receive a coordinator address.
-
-    // Example code:
-    // scan is done
-    if(NODETYPE != COORD)
-    {
-        if (success)
-        {
-            // associate with coordinator
-            macSetAlarm(10,appAssociate);
-
-            debugMsgStr("\r\nScan good, selecting chan: ");
-            debugMsgInt(panDescriptor.logicalChannel);
-        }
-        else
-        {
-            // failure to find a network
-            if (VLP)
-            {
-                // Try again after sleeping for 10 seconds
-                nodeSleep(100);
-                appStartScan();
-            }
-            else
-            macSetAlarm(1000,appStartScan);
-            debugMsgStr("\r\nScan bad");
-        }
-    }
 }
+#endif
 
 /**
    Callback function, called when   macFindClearChannel()
@@ -717,7 +615,8 @@ appScanConfirm(u8 success)
 
    u8 channel The clear channel selected for use by this PAN.
 */
-void appClearChanFound(u8 channel)
+void
+appClearChanFound(u8 channel)
 {
     if (NODETYPE == COORD)
     {
@@ -860,7 +759,7 @@ void appTask(void)
             if (pingTimer)
             {
                 // stop pinging
-                macTimerEnd(pingTimer);
+                macTimerKill(pingTimer);
                 pingTimer = 0;
             }
             else
@@ -991,7 +890,7 @@ void appTask(void)
                     
 					if (APP == SENSOR)
                     {
-                        sprintf(debugStr,strcpy_P(dbg_buff,PSTR("Interval = %d.%dsec\r\n")), frameInterval/10, frameInterval%10);
+                        sprintf(debugStr,strcpy_P(dbg_buff,PSTR("Interval = %d00 msec\r\n")), halGetFrameInterval() );
                         debugMsgStr_d(debugStr);
                     }
                     sprintf(debugStr,strcpy_P(dbg_buff, PSTR("6LoWPAN = %s\r\n")), IPV6LOWPAN ? "Yes":"No");

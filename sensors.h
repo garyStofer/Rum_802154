@@ -39,46 +39,70 @@
 // Support for pining all nodes.
 #define PING_ALL      1
 void allNodes(u8 func, u16 val);
+void StartSensorBC_interval(void);
+void StartSensorReadings(void);		// Init and start automatic sensor reading transmissions to COORD
+void sensorRequestReading(u16 addr, u16 time);
+u8 sensorCalBusy(void);
+
+// Sensor type enum -- not to exceed width of Sensor type field in struct tAD_data & sftSensorReading .
+typedef enum {None,Temp1,Temp2,Baro,Accel_X,Accel_Y,Accel_Z,V_Co2,V_Hc,RSSI,V_bat} tSensor_data_type;
+// Broadcast data frame type -- do not exceed bitfield lenght below
+typedef enum {BC_NONE, BC_SENSOR_DATA,} tBC_DataType;
+
+typedef struct
+{
+	tSensor_data_type 	SensorType :4 ;		// 16 different sensor types, i.e. temp, baro, angle, etc..
+	unsigned short 		ADC_Value  :12;		// with 12 bits resolution each
+}__attribute__((packed)) tAD_data;
+
+typedef struct
+{
+	unsigned short 		Unused 	 :1;	// spare
+	tBC_DataType 		DataType :3;	// for different data packages sent  via the BC interface -- for now only sensor AD data
+	unsigned short SensorUnitID  :12;	// The unique umber of the broadcasting device -- Could be part of the IEEE address
+									    // or possibly we could send the BC frame with a long address ??
+// union the folowing should different data types be needed
+	tAD_data Readings[10];			// the individual readings the sensor broadcasts
+} __attribute__((packed)) tBC_Data;
+
+#ifndef CAL
+/// Calibration flag, only compiles calibration code in if the flag is set.
+#define CAL 0
+#endif
 
 #if (APP == SENSOR)
 
-/// Calibration flag, only compiles calibration code in if the flag is set.
-#define CAL 0
+
 // What kind of node are we going to be?
 #define CAL_POINTS 1  // 1-point cal
 
 #define RETRY_WAIT_PERIOD 50   // Time (mS) to wait after a packet failed to try again.
 
-#define SENSOR_RANDOM_T  1  ///< Random temperature for demo.
-#define SENSOR_NET       5  ///< Network stats
-#define SENSOR_TEMP  	 7
+// Numbering must be consecutive from 1
+#define SENSOR_NONE		 0
+#define SENSOR_NET       1  // Network stats , RSSI
+#define SENSOR_TEMP1  	 2
+#define SENSOR_GAS 		 3
+#define SENSOR_BAT		 4
+#define SENSOR_TEMP2	 5
+#define SENSOR_BARO		 6
+#define SENSOR_ALL 		 7 		// all of the above in sequence -- must be last
 
 
 #ifndef SENSOR_TYPE
 #error "APP==SENSOR but SENSOR_TYPE not defined";
 #endif
 
-// Make sure ADC is off unless we need it
-#if SENSOR_TYPE == SENSOR_TEMP
-#define ADC_ENABLED 1
-#else
-#define ADC_ENABLED 0
-#endif
-
-/**
-   @addtogroup sensors
-   @{
-
-     data_structures Data Structures
+/*
+   data_structures Data Structures
 
    The structures listed above describe the frames sent between a
    sensor node and the coordinator.  The 'sft' prefix stands for
    "sensor frame type".
 */
 
-/**
-   @name Sensor frame types
-   @{
+/*
+   Sensor frame types
 */
 #define SET_NODE_NAME          2   ///< Frame directing the node to change its name string
 #define REQ_READING_FRAME      3   ///< Frame requesting that a node begin sending sensor readings
@@ -92,18 +116,22 @@ void allNodes(u8 func, u16 val);
 
 /// Length of node name string
 #define NAME_LENGTH 8
-
-
-
 /** Sensor reading packet, sent by sensor node to report its data to
     the coordinator.
 */
+
+// Save cal data (sensor node), used to interactively build the info
+	// over time by getting data back from coordinator
+	typedef struct{
+		double reading[2];  // Entered readings (from coord)
+		u16 ad[2];          // A/D readings from sensor (matching
+	} __attribute__((packed)) tCalData;
+
 typedef struct{
-    u8    type;          ///< Frame type, see   READING_FRAME
-    u16   addr;          ///< Short address of node sending reading
-    u8    reading[6];    ///< Calculated sensor reading, as an ASCII string
-    u8    units[5];      ///< Units of sensor reading, as an ASCII string
-    char  name[NAME_LENGTH];  ///< Name of sensor
+    u8    				Frametype;    	// Frame type, see   READING_FRAME -- NOTE: this is a waste of space when only 8 frame types are known
+    tSensor_data_type 	SensorType :4 ;	// the kind of the reading
+    unsigned short    SensorUnitID :12; // part of the MAC address for absolute sensor identification
+    float 				reading;
 } __attribute__((packed)) sftSensorReading;
 
 /** Sensor calibration request packet, sent by coordinator to ask
@@ -158,14 +186,14 @@ typedef struct{
 
 extern u16 node_addr;
 
-void sensorInit(void);		// Init and start automatic sensor reading transmissions to COORD
-void sensorRcvPacket(u8 *frame);
-void sensorRequestReading(u16 addr, u16 time);
+void Sensor_HW_Init( void);
+void sensorRcvPacket(u8 *payload, u8 len);
+
 void sensorRequestCalInfo(u16 addr);
 void sensorRequestRawData(u16 addr);
 void sensorSendSetNodeName(u16 addr, char *name);
 void sensorSendCalPoint(u8 index, char *str);
-u8 sensorCalBusy(void);
+
 char *sensorGetName(void);
 void sensorSendSetNodeName(u16 addr, char *name);
 void sensorPacketSendSucceed(void);
@@ -179,7 +207,7 @@ void SensorSendReading(void);
 
 #if NODETYPE == COORD
 	extern char node_name[NAME_LENGTH];
-	extern sftCalInfo coordCalInfo;
+//	extern sftCalInfo coordCalInfo;
 #endif
 
 #endif	// APP==SENSOR

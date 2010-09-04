@@ -163,21 +163,21 @@ macTask(void)
 				if (macConfig.associated)
 				{
 					// Wake up
-					if (NODETYPE != ENDDEVICE)
+					if ((NODETYPE == ROUTER || NODETYPE == COORD))
 						macChildIsAwake((ftData*)(mac_buffer_rx+1));
 
 					u16 Dest = ((ftData*)(mac_buffer_rx+1))->finalDestAddr;
 
 					// Received a data frame, process it or route it
 					if (Dest == macConfig.shortAddress) 	// This data frame is for this node
-						macDataIndication();
+						macDataIndication(Dest);
 					else if (Dest == BROADCASTADDR)
-// TODO: chnage the processing of broadcast data , for now use broadcast data like regular data
-						macDataIndication();
+// TODO: change the processing of broadcast data , for now use broadcast data like regular data
+						macDataIndication(Dest);
 					else
 					{
 						// Route the packet up/down stream
-						if (NODETYPE != ENDDEVICE)
+						if ((NODETYPE == ROUTER || NODETYPE == COORD))
 							macRouteData();
 					}
 				}

@@ -36,6 +36,8 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
+#include <compat/twi.h>
+
 
 #include "stdbool.h"
 #include "radio.h"
@@ -43,6 +45,7 @@
 #include "mac_event.h"
 #include "timer.h"
 #include "serial.h"
+#include "sensors.h"
 #include "mac_start.h"
 #include "mac_data.h"
 #include "mac_associate.h"
@@ -50,6 +53,7 @@
 #include "hal_avr.h"
 #include "EE_prom.h"
 #include "avr_sixlowpan.h"
+#include "i2c.h"
 
 /* On restart WDT will be enabled with shortest timeout if previously
    enabled. Must turn it off before anything else, attempting to
@@ -74,13 +78,12 @@ Reset_via_Watchdog( void)
     for(;;);
 }
 #endif
-
-
 void 
 Device_init()
 {
+volatile float t, p;
     halSetupClock();
-	
+
 	LED_INIT(); 
 	
 	// Init the button
@@ -88,6 +91,11 @@ Device_init()
 	
 	// Init the timer system for the MAC
     timerInit();
+
+
+
+
+
 
 
 // init serial
@@ -101,8 +109,20 @@ Device_init()
 	{
 		   debugMsgStr("\r\n Wrong BAND or unsupported RF device");
 		   // Lock the CPU Nothing else to do when we can't talk to the radio chip
-		   Led0_on();Led1_on(); while (1);		
+		   Leds_on();
+		   while (1);
 	}
+
+      i2c_init(200000UL);
+ //   i2c_init(50000UL);
+
+    if (APP==SENSOR)
+    {
+        TMP100_init(TMP100_12_BitCONF);
+        HP03_init();
+
+      	Sensor_HW_Init();		// analog sensors
+    }
 
     blink_red(200); // Blip the LED once on powerup
 	
@@ -119,32 +139,29 @@ int main(void)
 
 	// If the EEPROM is cleared, init it to something useful
 	checkEeprom();
-	debugMsgStr("\r\nStartup: as ");
 
 	// Init the mac and stuff
 #if (NODETYPE == COORD)
 	{
-		debugMsgStr("Coordinator");
+		debugMsgStr("\r\nStartup: as Coordinator");
 		macFindClearChannel();
 	// appClearChanFound() will be called
 	}
 #else
-	if	(NODETYPE == ROUTER)
-		debugMsgStr("Router");
-	else
-		debugMsgStr("EndDevice");
-
 	// End or Router node, start scanning for a coordinator
-	appStartScan();
-	// when scan is finished, appScanConfirm will be called.
+	macStartScan();
+
 
 #	if (IPV6LOWPAN == 1)
-	  sixlowpan_init();
-#endif
+		sixlowpan_init();
+		sixlowpan_application_init();
+#	endif
 #endif
 
-#if( NODETYPE == ENDDEVICE )
-	  Sensor_BC_loop();
+#if( NODETYPE == BC_ENDDEVICE )
+		// A BC only node has no way of knowing if the network is still alive and on the same channel unless it periodically
+		// does a re-sacn of all channels or the channel & PANDID is fixed
+	  StartSensorBC_interval();
 #endif
 
      // Main forever loop for the application.
@@ -156,7 +173,7 @@ int main(void)
         sei();
         // Task functions called from main loop.  Either add your own task loop
         // or edit the example appTask().
-        appTask();
+        appTask();   // This currently only does the debug interface via RS232
         macTask();
 
     }

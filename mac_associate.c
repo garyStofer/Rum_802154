@@ -150,8 +150,8 @@ void macAssociationConfirm(void)
 {
 #   if (NODETYPE != COORD) // Coords cannot associate
     {
-        // We have finished the association process, kill the association timer...
-        macTimerEnd(associationTimer);
+        // We have finished the association process, kill the association timeout timer...
+        macTimerKill(associationTimer);
 
         if ( macConfig.associated )
         {
@@ -160,8 +160,15 @@ void macAssociationConfirm(void)
         	macConfig.parentShortAddress = resp->srcAddr;
     		macConfig.shortAddress = resp->shortAddr;
     		radioSetShortAddress(macConfig.shortAddress);
+
+    		debugMsgStr("\r\nAssociated to Dev ");
+    		debugMsgHex(macConfig.parentShortAddress);
+    		debugMsgStr(" as ");
+    		debugMsgHex(macConfig.shortAddress);
         }
-        // else Not Associated -- timed out waiting for an associate response
+        else
+        	debugMsgStr("\r\nFailed to associate");
+
 
         // Let app know that we got an associate packet
         appAssociateConfirm(macConfig.associated);
@@ -1004,6 +1011,7 @@ associatedNodes_t *macGetNode(u16 index)
    coordinator, since we can assume the other entries are all zeroed
    on startup.
 */
+void macInitNodes(void)
 {
 
     {
@@ -1125,7 +1133,7 @@ void macClearChildWakeFlag(u16 addr)
 void
 macChildIsAwake(ftData *frame)
 {
-#   if (RUMSLEEP && NODETYPE != ENDDEVICE)
+#   if (RUMSLEEP && ( NODETYPE == ROUTER || NODETYPE == COORD))
     {
         u16 addr = frame->originAddr;
 

@@ -11,7 +11,6 @@
 #include <avr/eeprom.h>
 #include "rum_types.h"
 
-
 #define MINER_A   11
 #define MINER_B   12
 
@@ -56,7 +55,7 @@
   		#   define TICKTIMER  1			// 16 bit counter
 
  		#   define RADIO_VECT INT2_vect  ///< Radio interrupt vector
-            /// Macro to enable the radio interrupt -- make sure the bits matche the above int vector
+            /// Macro to enable the radio interrupt -- make sure the bits match the above int vector
         #   define HAL_ENABLE_RADIO_INTERRUPT( ) EICRA |= 0x30, EIMSK |= 4
             /// Macro to disable the radio interrupt
         #   define HAL_DISABLE_RADIO_INTERRUPT( ) EICRA &= ~0x30, EIMSK &= ~4
@@ -106,7 +105,7 @@
 //        #define BUTTON_SETUP()          DDRB &= ~(1 << PB0), PORTB |= (1 << PB0)
 //        #define BUTTON_PRESSED()        (!(PINB & (1 << PB0)))
 #elif PLATFORM==MINER_B
-		#if (!defined(__AVR_ATmega324P__) )
+		#if (! (defined(__AVR_ATmega324P__)  || defined(__AVR_ATmega644__)))
 
                 #error "Incorrect MCU for Platform! Check Makefile"
         #endif
@@ -139,6 +138,7 @@
         #   define HAL_ENABLE_RADIO_INTERRUPT( ) EICRA |= 0x30, EIMSK |= 4
             /// Macro to disable the radio interrupt
         #   define HAL_DISABLE_RADIO_INTERRUPT( ) EICRA &= ~0x30, EIMSK &= ~4
+
 
 		// Mux=0 and Ref=internal 2.56V, Enable and start a convsersion, clock Prescale = /16
         #   define HAL_ADC_INIT()    ADMUX = 0xc0, ADCSRA = 0xD4, DIDR0=0xff	// Mux=0 and Ref=internal 2.56V, Enable and start a convsersion, Prescale = /16

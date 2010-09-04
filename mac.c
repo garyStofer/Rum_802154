@@ -92,7 +92,7 @@ void macInit(u8 Channel)			// this gets called from multiple places to init/rein
     macInitNodes();
 #endif
 
-#if (DEMO && !TRACKDEMO)
+#if (DEMO)
     debugMsgStr("\r\nMAC & Radio Init in DEMO mode - reduced TX-output, reduced RX-sens, RSSI only for association ");
 #endif
 

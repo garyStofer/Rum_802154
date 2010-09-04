@@ -493,8 +493,9 @@
    @ingroup app
 */
 #define SENSOR     1
-#define IPSO       2
-#define DSKIPDEMO  3
+#define IPSO       2		// only used in sixlowpan
+#define DSKIPDEMO  3		// only used in sixlowpan
+
 #ifndef APP
 /**
    The APP macro is used to define which application gets compiled in.
@@ -504,7 +505,8 @@
 
    @ingroup app
  */
-#define APP SENSOR
+
+#define APP 0
 #endif
 
 /**
@@ -536,11 +538,15 @@
 #error "You cannot build an AVR 6LoWPAN coordinator.  Sorry."
 #endif
 
+#if ( IPV6LOWPAN || APP  || NODETYPE == BC_ENDDEVICE )
+#define LONG_TIMER 1
+#else
+#define LONG_TIMER 0
+#endif
 // App functions
 void appInit(void);
 
 // App layer callbacks
-void appStartScan(void);
 void appScanConfirm(u8 success);
 void appClearChanFound(u8 channel);
 void appAssociateConfirm(bool associated);
@@ -551,7 +557,7 @@ void appTask(void);
 void appPingReq(ftPing *pf);
 void appPingRsp(ftPing *pf);
 void appSixlowpanPingResponse(void);
-void appDataIndication(void);
+void appDataIndication(u8 * payload, u8 len, bool broadcast);
 void appChildAssociated(u16 shortAddress);
 void appNodeAssociated(u16 shortAddress);
 void blink_red(u8);
@@ -560,6 +566,7 @@ void blink_blue(u8);
 // MAC layer functions
 void macInit(u8 Channel);
 void macStartCoord(void);
+void macStartScan( void );
 void macScan(void);
 u8 macIsScanning(void);
 void macAssociate(u16 shortAddr, u8 channel);

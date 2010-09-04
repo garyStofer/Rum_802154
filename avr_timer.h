@@ -50,7 +50,7 @@ void macSetTimeout(u16 timeout);
 
 u8 macSetAlarm(u16 microseconds, void(*callback)(void));
 
-void macTimerEnd(u8 timerID);
+void macTimerKill(u8 timerID);
 /**
    @addtogroup timer_module
    @{
