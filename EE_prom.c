@@ -21,45 +21,59 @@
 // This gets programmed into the EEPROM if AVRDUDE is configured so that it loads the .eep file from the build.
 // Also make sure that the "preseve EEPROM" is not set in the fuse bits, otherwise the programming does not work
 // because the EEPROM is beeing restored to the previous values
-// u8 EEMEM eeMACAddr[8]= {0xaa,0x55,0xab,0x44,0x33,0x22,0x11,0x7}; // Not very useful for MAC addr since all devices would get the same address
+ u8 EEMEM eeContent[13]= {0xaa,0xFE,0xba,0x11,0x12,0x01,0x00,0,0,0,0,20,0}; // Not very useful for MAC addr since all devices would get the same address
 
 //TODO: To programm individual MAC addresses per board the EEPROM needs to be programmed outside of the program download and the EEPROM preserve bit in
 //      the fuse bits set, so that it stays permanently   This will have to be a sperate process and the code below should then only check for an BAD
 // MAC address and halt the CPU with the red LED on for example.
 
+static u16 SensorReadInterval=0;
 
+u16
+halGetFrameInterval(void)
+{
+	if (! SensorReadInterval )
+	{
+		 halGetEeprom((u8*)offsetof(tEepromContents, SensorframeInterval), sizeof(SensorReadInterval), (u8*) &SensorReadInterval);
+	}
+	return SensorReadInterval;
+}
+
+void
+halSetFrameInterval( u16 period )
+{
+	halPutEeprom((u8*)offsetof(tEepromContents, SensorframeInterval), sizeof(SensorReadInterval),  (u8*)&SensorReadInterval);
+}
 
 void
 checkEeprom(void)
 {
 
+
         u8 buf[8];
-        u16 dataInterval; // aka frameInterval
+        volatile u16 dataInterval; // aka frameInterval
         tCalFactors calFactors;
         u8 i,bad;
-//#define SET_EE_PROM
+// #define SET_EE_PROM
+
 // this just programms the MAC address to something specific -- Not very useful as all devices would endup with the same MAC addr this way
 #ifdef SET_EE_PROM
-        buf[0]= 0xca;
-        buf[1]= 0xfe;
-        buf[2]= 0xba;
-        buf[3]= 0xad;
-        buf[4]= 0x11;
-        buf[5]= 0x12;
-        buf[6]= 0x13;
-        buf[7]= 0x88;
-        halPutMacAddr(buf);
-
-    	calFactors.gain = 3.3/1024;
-        calFactors.offset = 0;
-        halSaveCalFactors(&calFactors);
-
-		dataInterval = 20; 						// set to 2 seconds
-		halSaveFrameInterval(&dataInterval); 	// and make it so
+        tEepromContents eeprom;
+        eeprom.eepromMacAddress[0]= 0xca;
+        eeprom.eepromMacAddress[1]= 0xfe;
+        eeprom.eepromMacAddress[2]= 0xba;
+        eeprom.eepromMacAddress[3]= 0xad;
+        eeprom.eepromMacAddress[4]= 0x11;
+        eeprom.eepromMacAddress[5]= 0x12;
+        eeprom.eepromMacAddress[6]= 0x01;
+        eeprom.eepromMacAddress[7]= 0x00;
+        eeprom.calFactors.gain = 0.25;
+        eeprom.calFactors.offset = 0;
+        eeprom.SensorframeInterval = 20; // 2 sec
+        halPutEeprom(offsetof(tEepromContents, eepromMacAddress), sizeof(eeprom), (u8*) &eeprom);
 #endif
 
         halGetMacAddr(buf);
-
 
         for (bad=1,i=0; i<8; i++)
         {
@@ -80,16 +94,16 @@ checkEeprom(void)
             halPutMacAddr(buf);
         }
 
-
-        // Get sensor send  interval from  EEPROM
-        halGetFrameInterval(&dataInterval);
+        // Get sensor send interval from  EEPROM
+        dataInterval = halGetFrameInterval();
         if (dataInterval == 0xffff)
         {
-				dataInterval = 20; 						// set to 2 seconds
-				halSaveFrameInterval(&dataInterval); 	// and make it so
+			dataInterval = 21; 						// set to 2 seconds
+			halSetFrameInterval(dataInterval); 	// and make it so
         }
 
-        halGetCalFactors(&calFactors);
+
+		halGetCalFactors(&calFactors);
         if (isnan(calFactors.offset)     || isnan(calFactors.gain))
         {
         	calFactors.gain = 1;
@@ -97,3 +111,6 @@ checkEeprom(void)
         	halSaveCalFactors(&calFactors);
         }
 }
+
+
+

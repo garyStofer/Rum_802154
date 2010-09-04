@@ -96,7 +96,7 @@ void radio_spi_init(void)
     SPSR         = (1 << SPI2X);
 }
 
-/*! \brief  This function initializes the Hardware Abstraction Layer.
+/* This function initializes the Hardware Abstraction Layer.
  *
  */
 void radio_hal_init(void)
