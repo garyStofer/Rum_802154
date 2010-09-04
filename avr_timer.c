@@ -93,19 +93,16 @@ typedef struct
 
 /// The maximum number of pending timer events.  Adjust as necessary.
 #define TIMER_EVENTS_MAX 10
-#define LONG_TIMER_EVENTS_MAX 3
-
 /// Array of timer event structures.
 static timerEventT timerEvents[TIMER_EVENTS_MAX];
-
-/// Array of long-time timer event structures.
-static timerEventT longTimerEvents[LONG_TIMER_EVENTS_MAX * (APP || IPV6LOWPAN)];
 static u16 secondTimer = 1000/MS_PER_TICK;
-
-
 #define max(a, b) ( (a)>(b) ? (a) : (b) )       // Take the max between a and b
 
-
+#ifdef LONG_TIMER
+#define LONG_TIMER_EVENTS_MAX 3
+/// Array of long-time timer event structures.
+static timerEventT longTimerEvents[LONG_TIMER_EVENTS_MAX];
+#endif
 
 /**
       Start the hardware timer running.
@@ -138,7 +135,7 @@ void timerInit(void)
     TIMER_INIT();
 
     // Init the PRNG
-    if (NODETYPE != ENDDEVICE)
+    if (NODETYPE == ROUTER || NODETYPE == COORD)
         srand(TCNT(TICKTIMER));
 
 	TIMER_CLEAR();
@@ -148,40 +145,45 @@ void timerInit(void)
 }
 
 /**
-     Returns a unique timer ID.
+     Returns a unique timer ID. Used only ti kill a timer prematurely
 
    returns:  The unique ID.
 */
 static u8 
-getUniqueID(void)
+getUniqueTimer_ID(void)
 {
     static u8 currentTimerID;
-    u8 i,goodID;
+    u8 i;
+    bool goodID=false;
 
-    currentTimerID++;
-    for(;;)
+    // Start searching from the last ID+1
+
+    for(currentTimerID++; goodID; currentTimerID++ )
     {
         // don't return zero as an ID, macSetAlarm return zero on error
-        if (!currentTimerID)
-            currentTimerID++;
+        if (currentTimerID==0)
+            continue;
 
         // See if this ID is used by any active timer
-        goodID = 1;
-        for (i=0;i<TIMER_EVENTS_MAX;i++)
-            if (timerEvents[i].timerID == currentTimerID)
-                goodID = 0;
-        if (APP || IPV6LOWPAN)
+        for (i=0; i<TIMER_EVENTS_MAX; i++)
         {
-            for (i=0;i<LONG_TIMER_EVENTS_MAX;i++)
-                if (longTimerEvents[i].timerID == currentTimerID)
-                    goodID = 0;
+            if (timerEvents[i].timerID == currentTimerID)	// timer ID in use -- skipp
+                continue;
         }
-        if (goodID)
-            // unused ID, use this one
-            return currentTimerID;
-        // ID already exists, try again skippy
-        currentTimerID++;
+
+#       if (LONG_TIMER)
+        {
+            for (i=0; i<LONG_TIMER_EVENTS_MAX; i++)
+            {
+                if (longTimerEvents[i].timerID == currentTimerID)	// timer ID in use -- skipp
+                    continue;
+            }
+        }
+#		endif
+        goodID =true;
+
     }
+    return currentTimerID;
 }
 
 
@@ -205,7 +207,9 @@ void macSetTimeout(u16 timeout)
 #define TICKS_PER_MS (u16)(1.0/((float)MS_PER_TICK))
 
 volatile static u16 tickTimer;
-u16 macGetTime(void)
+
+u16
+macGetTime(void)
 {
     u16 localtime;
 
@@ -228,9 +232,13 @@ u16 macGetTime(void)
    specified time.  The callback function must take no arguments and
    return nothing.
 
-   returns:  Handle to timer.  Can be used to call macTimerEnd().
+   returns:  Handle to timer.  Can be used to call macTimerKill().
+
+   NOTE: Timers are oneshot only - no repeat or reload function
+         you must call MacSetAlarm repeadedtly for a timed loop
 */
-u8 macSetAlarm(u16 time, void(*callback)(void))
+u8
+macSetAlarm(u16 time, void(*callback)(void))
 {
     u8 i;
     u16 ticks;
@@ -260,12 +268,8 @@ u8 macSetAlarm(u16 time, void(*callback)(void))
     timerEvents[i].time = ticks;
     timerEvents[i].callback = callback;
     // don't return zero as a timer ID
-    timerEvents[i].timerID = getUniqueID();
+    timerEvents[i].timerID = getUniqueTimer_ID();
 
-/*
-    // start timer running, since we have at least one timer running
-    timerStart(); -- started once an for all in Timer_init
-*/
     AVR_LEAVE_CRITICAL_REGION();
 
     return timerEvents[i].timerID;
@@ -276,12 +280,13 @@ u8 macSetAlarm(u16 time, void(*callback)(void))
      A long-delay timer function, which can delay for up to 15.7
    hours.
 
-   returns:  Handle to timer.  Can be used to call macTimerEnd().
+   returns:  Handle to timer.  Can be used to call macTimerKill().
 */
-u8 macSetLongAlarm(u16 seconds, void(*callback)(void))
+u8
+macSetLongAlarm(u16 seconds, void(*callback)(void))
 {
     // Only use long alarms with app or 6lowpan
-    if (APP || IPV6LOWPAN)
+#   if (LONG_TIMER)
     {
         // Find a free timer
         u8 i;
@@ -305,33 +310,36 @@ u8 macSetLongAlarm(u16 seconds, void(*callback)(void))
         // Store the time and callback into free timer
         longTimerEvents[i].time = seconds;
         longTimerEvents[i].callback = callback;
-        longTimerEvents[i].timerID = getUniqueID();
+        longTimerEvents[i].timerID = getUniqueTimer_ID();
 		
    /*     started once and for all in Timer init
         // start timer running, since we have at least one timer running
         AVR_ENTER_CRITICAL_REGION();
         timerStart();
         AVR_LEAVE_CRITICAL_REGION();
-   */     
+   */
         return longTimerEvents[i].timerID;
     }
+#endif
     return 0;
 }
 
 /**
      End the timer specified by ID, before it is expired.
    Calling after expiration will not cause any problem, unless a new
-   timer has been sept.
+   timer has been set withe the same ID.
 
    param:  timerID The value returned from macSetAlarm when the alarm
    was set.
 */
-void macTimerEnd(u8 timerID)
+void
+macTimerKill(u8 timerID)
 {
     u8 i;
 
     // search for timer with timerID
     for (i=0;i<TIMER_EVENTS_MAX;i++)
+    {
         if (timerEvents[i].timerID == timerID)
         {
             // kill this timer
@@ -339,9 +347,9 @@ void macTimerEnd(u8 timerID)
             timerEvents[i].timerID = 0;
             return;
         }
-
+    }
     // search for long timer with timerID
-    if (APP || IPV6LOWPAN)
+#   if (LONG_TIMER)
     {
         for (i=0;i<LONG_TIMER_EVENTS_MAX;i++)
             if (longTimerEvents[i].timerID == timerID)
@@ -352,6 +360,7 @@ void macTimerEnd(u8 timerID)
                 return;
             }
     }
+#	endif
 }
 
 /**
@@ -380,7 +389,7 @@ ISR(TICKVECT)
 #endif
     
     // Decrement second timer
-    if (APP || IPV6LOWPAN)
+    if (LONG_TIMER)
     {
         if (!--secondTimer)
         {
@@ -394,6 +403,7 @@ ISR(TICKVECT)
                     // This timer is active, check for expiration
                     if (!--longTimerEvents[i].time)
                     {
+                    	timerEvents[i].timerID = 0;
                         // Timer expired, queue the associated callback
                         event.event = MAC_EVENT_TIMER;  // Event type, see event_t for details.
                         event.data = (u8*)longTimerEvents[i].callback;
@@ -412,8 +422,9 @@ ISR(TICKVECT)
             // this timer event is live, check for expiration
             if (!--timerEvents[i].time)
             {
+            	timerEvents[i].timerID = 0;
                 // Timer expired, queue the associated callback
-	            event.event = MAC_EVENT_TIMER;  // Event type, see event_t for details.
+            	event.event = MAC_EVENT_TIMER;  // Event type, see event_t for details.
                 event.data = (u8*)timerEvents[i].callback;
                 mac_put_event(&event);
             }
