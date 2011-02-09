@@ -36,12 +36,15 @@ halGetFrameInterval(void)
 	{
 		 halGetEeprom((u8*)offsetof(tEepromContents, SensorframeInterval), sizeof(SensorReadInterval), (u8*) &SensorReadInterval);
 	}
+
 	return SensorReadInterval;
+
 }
 
 void
 halSetFrameInterval( u16 period )
 {
+	SensorReadInterval = (u8) period;
 	halPutEeprom((u8*)offsetof(tEepromContents, SensorframeInterval), sizeof(SensorReadInterval),  (u8*)&SensorReadInterval);
 }
 
