@@ -44,8 +44,35 @@ void StartSensorReadings(void);		// Init and start automatic sensor reading tran
 void sensorRequestReading(u16 addr, u16 time);
 u8 sensorCalBusy(void);
 
-// Sensor type enum -- not to exceed width of Sensor type field in struct tAD_data & sftSensorReading .
-typedef enum {None,Temp1,Temp2,Baro,Accel_X,Accel_Y,Accel_Z,V_Co2,V_Hc,RSSI,V_bat} tSensor_data_type;
+// Numbering must be consecutive from 1
+#define SENSOR_NONE		 	0
+#define SENSOR_NET       	1  // Network stats , RSSI
+#define SENSOR_TMP100	 	2
+#define SENSOR_BAT		 	3
+#define SENSOR_BARO		 	4
+#define SENSOR_HYG		 	5
+#define SENSOR_GAS_HC 	 	6
+#define SENSOR_GAS_CO 	 	7
+#define SENSOR_BMP085		8
+
+// This define needs to be on the compile cmd line, definig one of the above sensors
+#ifndef SENSOR_TYPE
+#error "APP==SENSOR but SENSOR_TYPE not defined";
+#endif
+
+// Sensor type enum -- not to exceed width of Sensor type field in struct tAD_data & sftSensorReading.
+// Match the compile time defines above
+typedef enum {None = SENSOR_NONE,
+			  RSSI = SENSOR_NET,
+			  TMP100 = SENSOR_TMP100,
+			  V_bat = SENSOR_BAT,
+			  Baro = SENSOR_BARO,
+			  Hyg = SENSOR_HYG,
+			  V_Hc = SENSOR_GAS_HC,
+			  V_Co2 =SENSOR_GAS_CO,
+			 BMP085 = SENSOR_BMP085
+}
+tSensor_data_type;
 // Broadcast data frame type -- do not exceed bitfield lenght below
 typedef enum {BC_NONE, BC_SENSOR_DATA,} tBC_DataType;
 
@@ -78,20 +105,6 @@ typedef struct
 
 #define RETRY_WAIT_PERIOD 50   // Time (mS) to wait after a packet failed to try again.
 
-// Numbering must be consecutive from 1
-#define SENSOR_NONE		 0
-#define SENSOR_NET       1  // Network stats , RSSI
-#define SENSOR_TEMP1  	 2
-#define SENSOR_GAS 		 3
-#define SENSOR_BAT		 4
-#define SENSOR_TEMP2	 5
-#define SENSOR_BARO		 6
-#define SENSOR_ALL 		 7 		// all of the above in sequence -- must be last
-
-
-#ifndef SENSOR_TYPE
-#error "APP==SENSOR but SENSOR_TYPE not defined";
-#endif
 
 /*
    data_structures Data Structures
@@ -128,10 +141,10 @@ typedef struct
 	} __attribute__((packed)) tCalData;
 
 typedef struct{
-    u8    				Frametype;    	// Frame type, see   READING_FRAME -- NOTE: this is a waste of space when only 8 frame types are known
-    tSensor_data_type 	SensorType :4 ;	// the kind of the reading
-    unsigned short    SensorUnitID :12; // part of the MAC address for absolute sensor identification
-    float 				reading;
+    u8    				Frametype;    		// Frame type, see   READING_FRAME -- NOTE: this is a waste of space when only 8 frame types are known
+    tSensor_data_type 	SensorType :4 ;		// the kind of the reading
+    unsigned short    	SensorUnitID :12; 	// part of the MAC address for absolute sensor identification
+    float 				readings[4];		// A sensor can have 4 independent results
 } __attribute__((packed)) sftSensorReading;
 
 /** Sensor calibration request packet, sent by coordinator to ask

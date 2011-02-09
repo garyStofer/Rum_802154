@@ -20,8 +20,8 @@ typedef enum { Start=0,
              } I2C_mode ; // I2c operation modes for Master transmit and Master receive modes
 
 extern unsigned char I2C_xfer( I2C_mode mode, unsigned char data );
-// defines for TMP_100 device
 
+// defines for TMP_100 device
 #define TMP100_I2C_Addr 0x90
 #define TMP100_Temp_Reg 0x00
 #define TMP100_Ctrl_Reg 0x01
@@ -37,6 +37,9 @@ extern _Bool TMP100_init(unsigned char resolution );
 extern float TMP100_read( void );
 extern void HP03_init(void);
 extern bool HP03_Read( float *t, float *p);
+extern bool SHT1xRead(float *temp, float *Rh);
+extern bool BMP085_init(void );
+extern bool BMP085_Read(float * t , float *p);
 
 
 #endif /* I2C_H_ */

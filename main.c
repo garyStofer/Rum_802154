@@ -81,7 +81,7 @@ Reset_via_Watchdog( void)
 void 
 Device_init()
 {
-volatile float t, p;
+
     halSetupClock();
 
 	LED_INIT(); 
@@ -91,12 +91,6 @@ volatile float t, p;
 	
 	// Init the timer system for the MAC
     timerInit();
-
-
-
-
-
-
 
 // init serial
     if (SERIAL)
@@ -113,18 +107,30 @@ volatile float t, p;
 		   while (1);
 	}
 
-      i2c_init(200000UL);
- //   i2c_init(50000UL);
-
     if (APP==SENSOR)
     {
-        TMP100_init(TMP100_12_BitCONF);
-        HP03_init();
+        i2c_init(200000UL);		// 200Khz clock
+
+    	if (SENSOR_TYPE==SENSOR_TMP100 )
+    		TMP100_init(TMP100_12_BitCONF);
+
+    	if ( SENSOR_TYPE==SENSOR_BARO )
+    		HP03_init();
+
+    	if ( SENSOR_TYPE==SENSOR_BMP085 )
+    	    		BMP085_init();
+
+     	if ( SENSOR_TYPE==SENSOR_HYG ) // Make PD4 an output
+     		DDRD  |=  0x10;
+
 
       	Sensor_HW_Init();		// analog sensors
     }
 
+
+
     blink_red(200); // Blip the LED once on powerup
+
 	
 }
 

@@ -522,6 +522,8 @@ appDataIndication(u8 * payload, u8 len, bool Broadcast)
 	 {
 #if (APP == SENSOR  && NODETYPE == COORD)	// pass data to application
 		 CoordRcvSensorPacket(payload, len);
+#else
+		 sensorRcvPacket(payload,  len );
 #endif
 	 }
 }
@@ -537,7 +539,7 @@ void
 appChildAssociated(u16 shortAddress)
 {
     // Blip the LED when we associate a child
-    debugMsgStr("\r\n!App Child Associated");
+   // debugMsgStr("\r\n!App Child Associated");
 	blink_blue(LED_DELAY);
 }
 
@@ -551,7 +553,7 @@ appChildAssociated(u16 shortAddress)
 void
 appNodeAssociated(u16 shortAddress)
 {
-	debugMsgStr("\r\n!App NODE Associated");
+	//debugMsgStr("\r\n!App NODE Associated");
 }
 
 # if(NODETYPE != COORD)
@@ -722,20 +724,21 @@ void allNodes(u8 func, u16 val)
 #endif
 }
 
-/**
+/** Serial MENU:
    Print prompts for debug mode.  This is in a separate function
    because we want a delay before printing the next prompt, in case
    there is some status data printed from the last command.
  */
 void printPrompt(void)
 {
-    if (NODETYPE == COORD)
+#    if (NODETYPE == COORD)
     {
         debugMsgStr("\r\nd=dump t=table i=info p=ping s=stream c=chan");
         debugMsgStr("\r\nr=reading n=name w=wake P=pause: ");
     }
-    else
+#   else
         debugMsgStr("\r\nd=dump t=table i=info p=ping s=stream P=pause: ");
+#endif
 }
 
 
@@ -898,6 +901,7 @@ void appTask(void)
                     sprintf(debugStr,strcpy_P(dbg_buff,PSTR("Demo mode = %s\r\n")), DEMO ? "Yes":"No");
 					debugMsgStr_d(debugStr);
                     break;
+
                 case 'p':
                     // ping
                     debugMsgStr("\r\nEnter short addr:");
@@ -914,7 +918,7 @@ void appTask(void)
                     break;
                 case 'c':
                     // change coordinator channel
-                    if (NODETYPE == COORD)
+#				    if (NODETYPE == COORD)
                     {
                         debugMsgStr("\r\nEnter new chan");
                         serial_gets(debugStr, 50, true);
@@ -936,23 +940,25 @@ void appTask(void)
                             macConfig.panId = addr;
                         }
                     }
+#endif
                     break;
                 case 'r':
                     // Request reading from end node
-                    if (NODETYPE == COORD && APP == SENSOR)
+#                   if (NODETYPE == COORD && APP == SENSOR)
                     {
                         // get address and time
                         debugMsgStr("\r\nRequest data from node:");
                         serial_gets(debugStr,50,true);
                         addr = atoi(debugStr);
                         u16 time;
-                        debugMsgStr("\r\nReport time (100mS intervals):");
+                        debugMsgStr("\r\nReport time (100mS increments):");
                         serial_gets(debugStr,50,true);
                         time = atoi(debugStr);
                         // Grab pending frames, so we don't trigger sending req frame
                         macTask();
                         sensorRequestReading(addr, time);
                     }
+#endif
                     break;
                 case 'C':
                     // calibrate an end node
@@ -970,7 +976,7 @@ void appTask(void)
                     break;
                 case 'S':
                     // sleep
-                    if (NODETYPE != COORD)
+#                   if (NODETYPE != COORD)
                     {
                         for(;;)
                         {
@@ -985,6 +991,7 @@ void appTask(void)
                             delay_us(1000);
                         }
                     }
+#endif
                     break;
                 case 'n':
                     // Name a node
@@ -1001,7 +1008,7 @@ void appTask(void)
                     break;
                 case 'w':
                     // wake an end node
-                    if (NODETYPE == COORD)
+#					if (NODETYPE == COORD)
                     {
                         debugMsgStr("\r\nWake which node:");
                         serial_gets(debugStr,50,true);
@@ -1010,15 +1017,18 @@ void appTask(void)
                         macTask();
                         macWakeChildNode(addr);
                     }
+#endif
                     break;
+
                 case 'P':
                     // Pause serial display
                     debugMsgStr("\r\nPaused, press 'P' to unpause");
                     serial_toggle_pause();
                     break;
+
                 case 'A':
                     // Do something to all nodes
-                    if (NODETYPE == COORD)
+#                   if (NODETYPE == COORD)
                     {
                         debugMsgStr("\r\nAll nodes - (r)eading, (p)ping:");
                         serial_gets(debugStr,50,true);
@@ -1032,6 +1042,7 @@ void appTask(void)
                             allNodes(REPORT_ALL, atoi(debugStr));
                         }
                     }
+#endif
                     break;
                 default:
                     break;

@@ -181,7 +181,6 @@ void StartSensorBC_interval(void)
 
 // Enable this file only if we are compiling in the sensor app.
 #if (APP == SENSOR)
-static u8 sensorType;
 static u8 busyCal; // Is the cal process running?  This flag is used to suppress user menus during calibration.
 static u8 sensorSentReading; // flag - have we sent a reading and are waiting for a response?
 static u8 sendReadingTimer;
@@ -210,7 +209,6 @@ SensorStartReadings(void)
 	// based on the Sensor frame interval stored in the EEPROM
 	if (halGetFrameInterval())
 	{
-		 sensorType = SENSOR_TYPE;
 		 sendReadingTimer = macSetAlarm(10, SensorSendReading);// Start the first reading almost right away
 	}
 
@@ -295,20 +293,18 @@ static void
 sensorReplyCalInfo(sftRequest *req)
 {
 
-    {
-        // Return tCalInfo packet
-        sftCalInfo calInfo = {
-            .type = CAL_INFO_FRAME,
-            .calType = CAL_POINTS,
-            .addr = macConfig.shortAddress,
-            .units = "degF"};
+	// Return tCalInfo packet
+	sftCalInfo calInfo = {
+		.type = CAL_INFO_FRAME,
+		.calType = CAL_POINTS,
+		.addr = macConfig.shortAddress,
+		.units = "degF"};
 
 #if IPV6LOWPAN
         sixlowpan_sensorReturn(sizeof(sftCalInfo), (u8*)&calInfo);
 #else
         macDataRequest(DEFAULT_COORD_ADDR, sizeof(sftCalInfo), (u8*)&calInfo);
 #endif
-    }
 
 }
 #endif
@@ -419,52 +415,50 @@ SensorSendReading(void)
 {
 #if (NODETYPE == ROUTER || NODETYPE == ENDDEVICE)
 
-	volatile float val ;
-	float dummy;
+	volatile float val;
 
 	u16 i;
-	sftSensorReading reading ;
+	sftSensorReading reading;
 
 	if (! macConfig.associated)		// if not associtaed we don't know how to send
     	return;
 
-	reading.Frametype = READING_FRAME;
+	Led1_on();	// this gets cleared by: sensorPacketSendSucceed(),sensorPacketSendFailed() and sensorLostNetwork()
+
 	//Using 12 lower bits from IEEE MAC address for unit ID
-	 halGetEeprom((u8*)(offsetof(tEepromContents, eepromMacAddress))+6 ,2,(u8*)&i);		// Getting the two LSB's from the IEEE MAC addr
-	 reading.SensorUnitID = i;
-
-
-	if (SENSOR_TYPE == SENSOR_ALL )
+	// Getting the two LSB's from the IEEE MAC addr
+	halGetEeprom((u8*)(offsetof(tEepromContents, eepromMacAddress))+6 ,2,(u8*)&i);
+	reading.SensorUnitID = i;
+	reading.Frametype = READING_FRAME;
+// TODO: switch below is a constant case -- Will this get optimized out ?? Should be recoded via if, elseif for optimization??
+	switch (SENSOR_TYPE)
 	{
-		if (! --sensorType)
-			sensorType = SENSOR_ALL-1;
-	}
-	else
-		sensorType = SENSOR_TYPE;
+		case SENSOR_BMP085:
+			reading.SensorType=BMP085;
+			BMP085_Read(&reading.readings[0] , &reading.readings[1]);
+			break;
 
-	switch (sensorType)
-	{
+		case SENSOR_HYG:
+			reading.SensorType = Hyg;
+			SHT1xRead(&reading.readings[0], &reading.readings[1]);
+			break;
+
 		case SENSOR_NET: // RSSI
 			reading.SensorType = RSSI;
-			val = radioGetSavedRssiValue();
+			reading.readings[0] = radioGetSavedRssiValue();
 			break;
 
-		case SENSOR_TEMP1:
-			reading.SensorType = Temp1;
-			val = TMP100_read();
-			break;
-
-		 case SENSOR_TEMP2:
-			reading.SensorType = Temp2;
-			HP03_Read(&val , &dummy);
+		case SENSOR_TMP100:
+			reading.SensorType = TMP100;
+			reading.readings[0] = TMP100_read();
 			break;
 
 		 case SENSOR_BARO:
 			reading.SensorType = Baro;
-			HP03_Read(&dummy , &val);
+			HP03_Read(&reading.readings[0] ,&reading.readings[1]);
 			break;
 
-		case SENSOR_GAS:
+		case SENSOR_GAS_HC:
 			// Turn the heater of the gas sensor on -- Only needed the first time around, but delayed execution
 			// in here to leave the heater off unless the device is associted
 			DDRD |= 0x80;
@@ -476,6 +470,7 @@ SensorSendReading(void)
 			val = (float) HAL_READ_ADC() ;
 			val *= 2.5e-3;		// in volts -- using 2.56V internal ref and x1 gain
 			val*=2; 			// Voltage divider 2:1
+			reading.readings[0]= val;
 			break;
 
 		case SENSOR_BAT:
@@ -486,29 +481,30 @@ SensorSendReading(void)
 			val = (float) HAL_READ_ADC() ;
 			val *= 2.5e-3;		// in volts -- using 2.56V internal ref and x1 gain
 			val *=16;			// Voltage divider 16:1
+			reading.readings[0]= val;
 			break;
 
 		default:
-			val = 0;
+			reading.readings[0] = reading.readings[1] = 0;
+			debugMsgStr("\r\nInvalid Sensor Type requested !!");
+			return;
 	}
 
-	Led1_on();	// this gets cleared by: sensorPacketSendSucceed(),sensorPacketSendFailed() and sensorLostNetwork()
+
 
 	debugMsgStr("\r\nSending SensorPacket");
 	//char str[20];
 	//sprintf((char *)str," %1.2f ",(double)val);
 	//debugMsgStr_d((char *) str);
 
-
-	reading.reading = val;
 	// Send it off
-#	if IPV6LOWPAN
+#if IPV6LOWPAN
 	//If we have a report time of zero, don't actually send...
 	if(frameInterval)		//We flag this data as possibly being sent to a remote address too
 		sixlowpan_sensorPerSend(sizeof(sftSensorReading), (u8*)&reading);
-#	else
+#else
 	macDataRequest(DEFAULT_COORD_ADDR, sizeof(sftSensorReading), (u8*)&reading);
-#	endif
+#endif
 
 	sensorSentReading = true;
 
@@ -629,10 +625,13 @@ sensorRequestReadings(sftRequestData *req)
             debugMsgStr("\r\nSleeping interval = ");
             debugMsgInt(req->time);
             debugMsgCrLf();
+            debugMsgStr("\r\n  Sensor Start Reading loop Requested by Coord  ");
+            // And start the sending process.
+            SensorStartReadings();
         }
-        debugMsgStr("\r\n  Sensor Start Reading loop Requested by Coord  ");
-        // And start the sending process.
-        SensorStartReadings();
+        else
+        	debugMsgStr("\r\n  Sensor Reading loop Stopped by Coord");
+
     }
 
 }
@@ -666,7 +665,7 @@ sensorSetNodeNameRcv(char *name)
    and router/end nodes.
 
    param: 
-   frame Pointer to the frame payload.  See   ftData.
+   Pointer to the frame payload.  See   ftData.
 */
 void
 sensorRcvPacket(u8 *frame, u8 len )
@@ -735,6 +734,12 @@ sensorRequestReading(u16 addr, u16 time)
         req.type = REQ_READING_FRAME;
         req.time = time;
 
+ debugMsgStr("\r\nSending Report-Interval-Request to node:");
+ debugMsgInt(addr);
+ debugMsgStr(" to:");
+ debugMsgInt(time);
+ debugMsgStr("00 ms");
+
         if (IPV6LOWPAN)
             sixlowpan_sensorSend(addr, sizeof(sftRequestData), (u8*)&req);
         else
@@ -754,24 +759,33 @@ CoordRcvSensorReading(sftSensorReading *reading)
 		sprintf(str,"\r\nSensor %d :", reading->SensorUnitID);
 		serial_puts(str);
 
-		sprintf(str,"%1.2f", (double) reading->reading);
+		sprintf(str,"%1.2f", (double) reading->readings[0]);
 
 		switch (reading->SensorType)
 		{
-			case Temp1:
-				serial_puts(" Temp1=");
-				serial_puts((char *)str);
-				serial_puts(" DegC");
-				break;
-			case Temp2:
-				serial_puts(" Temp2=");
+			case TMP100:
+				serial_puts(" TMP100=");
 				serial_puts((char *)str);
 				serial_puts(" DegC");
 				break;
 			case Baro:
+			case BMP085:
 				serial_puts(" Baro=");
 				serial_puts((char *)str);
+				serial_puts(" DegC,");
+				serial_puts(" Baro=");
+				sprintf(str,"%1.2f", (double) reading->readings[1]);
+				serial_puts((char *)str);
 				serial_puts(" hPa");
+				break;
+			case Hyg:
+				serial_puts(" TempHyg=");
+				serial_puts((char *)str);
+				serial_puts(" DegC,");
+				serial_puts(" RH=");
+				sprintf(str,"%1.2f", (double) reading->readings[1]);
+				serial_puts((char *)str);
+				serial_puts(" %");
 				break;
 			case V_bat:
 				serial_puts(" V_bat=");
@@ -875,7 +889,6 @@ void
 sensorRequestCalInfo(u16 addr)
 {
 
-    {
         sftRequest req;
 
         req.type = CAL_REQ_INFO_FRAME;
@@ -888,14 +901,10 @@ sensorRequestCalInfo(u16 addr)
 #else
         macDataRequest(addr, sizeof(sftRequestData), (u8*)&req);
 #endif
-    }
-
 }
 
 void sensorRequestRawData(u16 addr)
 {
-
-    {
         sftRequest req;
         req.type = REQ_RAW_DATA_FRAME;
 
@@ -904,8 +913,6 @@ void sensorRequestRawData(u16 addr)
 #else
         macDataRequest(addr, sizeof(sftRequestData), (u8*)&req);
 #endif
-    }
-
 }
 
 /**
@@ -918,12 +925,10 @@ void sensorRequestRawData(u16 addr)
 void
 sensorSendSetNodeName(u16 addr, char *name)
 {
+	sftSetName frame;
 
-    {
-        sftSetName frame;
-
-        frame.type = SET_NODE_NAME;
-        strncpy(frame.name, name, NAME_LENGTH);
+	frame.type = SET_NODE_NAME;
+	strncpy(frame.name, name, NAME_LENGTH);
 
         // Send frame
 #if IPV6LOWPAN
@@ -931,8 +936,6 @@ sensorSendSetNodeName(u16 addr, char *name)
 #else
         macDataRequest(addr, sizeof(sftSetName), (u8*)&frame);
 #endif
-    }
-
 }
 
 

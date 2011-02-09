@@ -167,9 +167,11 @@ macDataRequestInt(u16 addr, u8 len, u8 * data, u8 type)
 
 
     if (addr == macConfig.shortAddress || addr == BROADCASTADDR)
+    {
         // Don't send to self
+    	debugMsgStr("\r\nSelf addressed or Brodcast: nothing sent!");
         return;
-
+    }
     if (!macConfig.associated)
         // This node has no short address
         return;
@@ -239,8 +241,11 @@ macDataRequestInt(u16 addr, u8 len, u8 * data, u8 type)
             // Send it later, after child is awake
             macHoldFrame(addr, (u8*)data_frame, (u8)*mac_buffer_tx);
         else
+        {
             // Node is not sleeping child, send it now.
+        	debugMsgStr("-- macSetAlarm set");
             macSetAlarm(rpSent ? MAC_RP_DELAY : MAC_DATA_DELAY, mdr_timer);
+        }
     }
 #  else
         macSetAlarm((type==WAKE_NODE || type == DEBUG_FRAME) ? 0 : MAC_DATA_DELAY, mdr_timer);
