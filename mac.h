@@ -88,17 +88,12 @@ fcf  seq panID dest src  finalDest originAddr type appType
 
    @verbatim
 
-  Sensor Frame Type
+  Application Frame Type
  (from ftData above)  Value   Payload contents
  ===================  =====   ================
  SET_NODE_NAME          2     8 bytes of node name (ASCIIZ string)
  REQ_READING_FRAME      3     Time interval between data frames
  READING_FRAME          4     Address, reading, units, name
- CAL_REQ_INFO_FRAME     5     None
- CAL_INFO_FRAME         6     Calibration type, address, units
- REQ_RAW_DATA_FRAME     7     None
- RAW_DATA_FRAME         8     Raw A/D reading
- CAL_CMD_FRAME          9     Index and calibrated reading
 
  For READING_FRAME:
 

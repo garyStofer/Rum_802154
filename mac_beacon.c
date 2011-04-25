@@ -48,9 +48,12 @@ sendBeaconFrame(void)
 {
 #   if (NODETYPE == ROUTER || NODETYPE== COORD)
     {
+#if DEBUG==2
+    	debugMsgStr("\r\nTX BF");
+#endif
     	blink_blue(25);
         ftBeacon* data_frame = (ftBeacon*)(mac_buffer_tx+1);
-debugMsgStr("\r\nTX BF");
+
         data_frame->fcf   = FCF_BEACON;
         data_frame->seq   = macConfig.bsn++;
         data_frame->panid = macConfig.panId;

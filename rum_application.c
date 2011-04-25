@@ -505,7 +505,9 @@ appDataIndication(u8 * payload, u8 len, bool Broadcast)
 {
     // Write app code here -- This node has received a data frame.
     // Example code:
+#if DEBUG==2
 	debugMsgStr("appDataIndication->");
+#endif
 	blink_blue(LED_DELAY);
 // TODO: this should be it's own function dealing with all Broadcast frames
 	 if( Broadcast)
@@ -734,7 +736,7 @@ void printPrompt(void)
 #    if (NODETYPE == COORD)
     {
         debugMsgStr("\r\nd=dump t=table i=info p=ping s=stream c=chan");
-        debugMsgStr("\r\nr=reading n=name w=wake P=pause: ");
+        debugMsgStr("\r\nr=reading n=name w=wake P=pause H=Hygr ");
     }
 #   else
         debugMsgStr("\r\nd=dump t=table i=info p=ping s=stream P=pause: ");
@@ -786,7 +788,8 @@ void appTask(void)
 
 #if (DEBUG && SERIAL)
 
-    	if (serial_ischar() && (APP != SENSOR || !sensorCalBusy()))
+
+    	if (serial_ischar() )
         {
             u8 n;
             char ch;
@@ -960,17 +963,27 @@ void appTask(void)
                     }
 #endif
                     break;
-                case 'C':
-                    // calibrate an end node
+                case 'H':
+                    // send an argument
 #                   if (NODETYPE == COORD && APP == SENSOR)
                     {
                         // get address of node
-                        debugMsgStr("\r\nCal which node:");
+                        debugMsgStr("\r\nAddress which node:");
                         serial_gets(debugStr,50,true);
                         addr = atoi(debugStr);
 
-                        // Get cal info from node
-                        sensorRequestCalInfo(addr);
+                        short arg_1;
+                        short arg_2;
+                        debugMsgStr("\r\nHyg Thresh:");
+                        serial_gets(debugStr,50,true);
+                        arg_1 = atoi(debugStr);
+
+                        debugMsgStr("\r\nHyg Hyst:");
+                        serial_gets(debugStr,50,true);
+                        arg_2 = atoi(debugStr);
+
+                        // Send argument value and index to node
+                        sensorSendArgument(addr, arg_1, arg_2);
                     }
 #endif
                     break;
@@ -1006,6 +1019,7 @@ void appTask(void)
                     }
 #endif
                     break;
+
                 case 'w':
                     // wake an end node
 #					if (NODETYPE == COORD)

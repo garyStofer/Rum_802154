@@ -260,8 +260,10 @@ void radioTrxEndEvent(void)
 				if ((NODETYPE == ROUTER && macConfig.associated) ||
 					NODETYPE == COORD)
 					event.event = MAC_EVENT_BEACON_REQUEST;
+#if DEBUG==2
 debugMsgStr("\r\nRX BR");
-				break;
+#endif
+			break;
 
 			case FCF_BEACON:
 				// Beacon

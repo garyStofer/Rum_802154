@@ -131,9 +131,9 @@ sendBeaconRequest(void)
 {
     // Create a struct pointer to the global variable...
     ftBeaconReq* brFrame = (ftBeaconReq*)(mac_buffer_tx+1);
-
+#if DEBUG==2
     debugMsgStr("\r\nmacBeacon Request->");
-
+#endif
     // Fill in beacon request frame
     brFrame->fcf = FCF_BEACONREQ;
     brFrame->seq = macConfig.bsn++;

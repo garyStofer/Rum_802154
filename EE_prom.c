@@ -55,7 +55,6 @@ checkEeprom(void)
 
         u8 buf[8];
         volatile u16 dataInterval; // aka frameInterval
-        tCalFactors calFactors;
         u8 i,bad;
 // #define SET_EE_PROM
 
@@ -70,13 +69,16 @@ checkEeprom(void)
         eeprom.eepromMacAddress[5]= 0x12;
         eeprom.eepromMacAddress[6]= 0x01;
         eeprom.eepromMacAddress[7]= 0x00;
-        eeprom.calFactors.gain = 0.25;
-        eeprom.calFactors.offset = 0;
+        eeprom.args[0] = 0;
+        eeprom.args[1] = 0;
+        eeprom.args[2] = 0;
+        eeprom.args[3] = 0;
         eeprom.SensorframeInterval = 20; // 2 sec
         halPutEeprom(offsetof(tEepromContents, eepromMacAddress), sizeof(eeprom), (u8*) &eeprom);
 #endif
 
         halGetMacAddr(buf);
+
 
         for (bad=1,i=0; i<8; i++)
         {
@@ -105,14 +107,6 @@ checkEeprom(void)
 			halSetFrameInterval(dataInterval); 	// and make it so
         }
 
-
-		halGetCalFactors(&calFactors);
-        if (isnan(calFactors.offset)     || isnan(calFactors.gain))
-        {
-        	calFactors.gain = 1;
-        	calFactors.offset = 0;
-        	halSaveCalFactors(&calFactors);
-        }
 }
 
 

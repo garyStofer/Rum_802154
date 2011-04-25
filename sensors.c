@@ -97,18 +97,7 @@
    @verbatim
  Coordinator                 Frame type over the air             Router/End node
 
-                                   Calibration
-
- sensorRequestCalInfo()    ---> CAL_REQ_INFO_FRAME --->        sensorReplyCalInfo()
- sensorRcvCalInfo()        <---   CAL_INFO_FRAME   <---
- (Save cal info)
- sensorSendCalPoint()      --->    CAL_CMD_FRAME   --->        sensorRcvCalCommand()
-                                                                (calibrate sensor)
- sensorSendCalPoint()      --->    CAL_CMD_FRAME   --->        sensorRcvCalCommand()
-  (if 2-point cal)                                              (calibrate sensor)
-
-
-                                    Read Data
+                                      Read Data
 
  sensorRequestReading()    --->  REQ_READING_FRAME --->        sensorStartReadings()
  sensorRcvReading()        <---    READING_FRAME   <---        sendReading()
@@ -181,7 +170,7 @@ void StartSensorBC_interval(void)
 
 // Enable this file only if we are compiling in the sensor app.
 #if (APP == SENSOR)
-static u8 busyCal; // Is the cal process running?  This flag is used to suppress user menus during calibration.
+
 static u8 sensorSentReading; // flag - have we sent a reading and are waiting for a response?
 static u8 sendReadingTimer;
 //Initialize the sensor system by configuring the A/D converter
@@ -218,17 +207,11 @@ SensorStartReadings(void)
 #if (NODETYPE == COORD)
 	u16 node_addr;
 	char node_name[NAME_LENGTH];
-	// Cal info that coord has to save to do a cal
-	sftCalInfo coordCalInfo[1];
 #else
 	struct{
 			char name[8];  // Node name
 		  } __attribute__((packed)) sensorInfo[1];
 
-#if CAL
-		static tCalData calData[1];
-		static tCalFactors calFactors[1];
-#	endif
 #endif
 
 
@@ -240,23 +223,10 @@ SensorStartReadings(void)
 #if (NODETYPE != COORD)
 char *sensorGetName(void)
 {
+	halGetSensorName(&sensorInfo->name);
     return sensorInfo->name;
 }
 #endif
-
-/**
-   Returns true if the node is engaged in a calibration process.  This
-   value is used to suppress the main menu operation during the calibration process.
-
-   returns:  true  if the node is engaged (busy) with a calibration
-   returns:  false if the node is not busy
-*/
-u8 sensorCalBusy(void)
-{
-    return busyCal;
-}
-
-
 
 /** @} */
 /**
@@ -264,118 +234,6 @@ u8 sensorCalBusy(void)
    @{
 */
 
-/**
-   Sensor node sends raw data back to coordinator
-*/
-#if ((NODETYPE == ROUTER || NODETYPE == ENDDEVICE) && CAL)
-static void
-sensorReplyRawData(sftRequest *req)
-{
-
-    {
-        // Send data back
-        sftRawData rawData;
-        rawData.type = RAW_DATA_FRAME;
-        rawData.reading = 0x8000 + macConfig.dsn * 300;
-        // send it
-#if IPV6LOWPAN
-        sixlowpan_sensorReturn(sizeof(sftRawData), (u8*)&rawData);
-#else
-        macDataRequest(DEFAULT_COORD_ADDR, sizeof(sftRawData), (u8*)&rawData);
-#endif
-
-    }
-
-}
-#endif
-#if ((NODETYPE == ROUTER || NODETYPE == ENDDEVICE) && CAL)
-static void
-sensorReplyCalInfo(sftRequest *req)
-{
-
-	// Return tCalInfo packet
-	sftCalInfo calInfo = {
-		.type = CAL_INFO_FRAME,
-		.calType = CAL_POINTS,
-		.addr = macConfig.shortAddress,
-		.units = "degF"};
-
-#if IPV6LOWPAN
-        sixlowpan_sensorReturn(sizeof(sftCalInfo), (u8*)&calInfo);
-#else
-        macDataRequest(DEFAULT_COORD_ADDR, sizeof(sftCalInfo), (u8*)&calInfo);
-#endif
-
-}
-#endif
-#if ((NODETYPE == ROUTER || NODETYPE == ENDDEVICE) && CAL)
-static void
-sensorRcvCalCommand(sftCalCommand *calCommand)
-{
-
-    {
-        // Received a cal command, save away readings, calc when done
-        u8 index = calCommand->index;
-
-        // Begin A/D reading
-        HAL_SAMPLE_ADC();
-
-        // Save user-entered reading
-        calData->reading[index] = atof((char*)calCommand->reading);
-
-        // Finish A/D reading
-        HAL_WAIT_ADC();
-        calData->ad[index] = HAL_READ_ADC();
-
-
-        // If we have one (single-point) or both readings, do the cal
-        if (CAL_POINTS == 1)
-        {
-            // Wipe out cal before we get a current reading, so that
-            // old cal doesn't get used by sensorGetReading()
-            calFactors->offset = 0;
-            // Single-point temperature cal, save the offset
-//TODO: this whole thing with CAL is unclear -- Commented out at this point
-//            calFactors->b = calData->reading[index] - sensorGetReading();
-            // Save new cal factors to EEPROM
-            halSaveCalFactors(calFactors);
-
-
-        }
-        if (index)
-        {
-            // Second of two points, calculate calibration parameters
-            double m, b;
-            m = calData->reading[0] - calData->reading[1];
-            b = (double)calData->ad[0];
-            b -= (double)calData->ad[1];
-            m /= b;
-            b = calData->reading[0];
-            b -= (m * (double)calData->ad[0]);
-
-            debugMsgStr("\r\nA1=");
-            debugMsgHex(calData->ad[0]);
-            debugMsgCrLf();
-            debugMsgStr("A2=");
-            debugMsgHex(calData->ad[1]);
-            debugMsgCrLf();
-            debugMsgStr("r1=");
-            debugMsgFlt(calData->reading[0]);
-            debugMsgCrLf();
-            debugMsgStr("r2=");
-            debugMsgFlt(calData->reading[1]);
-            debugMsgCrLf();
-
-            // Store data in cal factors struct
-            calFactors->gain = m;
-            calFactors->offset = b;
-            // Save new cal factors to EEPROM
-            halSaveCalFactors(calFactors);
-        }
-    }
-
-}
-#endif
 static void
 sensorSleep(void)
 {
@@ -598,7 +456,7 @@ sensorLostNetwork(void)
 
   // turn gas sensor heater off
     DDRD |= 0x80;
-    PORTD |= 0x00;
+    PORTD &= 0x0F;  // turn all sensor related controls off -- heater, valves --
 }
 
 
@@ -649,12 +507,16 @@ sensorRequestReadings(sftRequestData *req)
 static void
 sensorSetNodeNameRcv(char *name)
 {
+    // Sensor node, set the name
+	strncpy(sensorInfo->name, name, NAME_LENGTH);
+    halSaveSensorName(&sensorInfo->name);
+}
 
-    {
-        // Sensor node, set the name
-        strncpy(sensorInfo->name, name, NAME_LENGTH);
-    }
-
+static void
+sensorSetArgument( short val0, short val1)
+{
+	halSaveSensorArgs(&val0,0);
+	halSaveSensorArgs(&val1,1);
 }
 #endif
 
@@ -680,30 +542,15 @@ debugMsgStr(" -- sensorRcvPacket");
 				sensorRequestReadings((sftRequestData *)frame);
 				break;
 
-			case CAL_REQ_INFO_FRAME:
-				// Frame containing a node's calibration information
-#if CAL
-				sensorReplyCalInfo((sftRequest*)frame);
-#endif
-				break;
-
-			case REQ_RAW_DATA_FRAME:
-				// Request a frame containing a node's raw data (A/D) readings
-#if CAL
-				sensorReplyRawData((sftRequest*)frame);
-#endif
-				break;
-
-			case CAL_CMD_FRAME:
-				// Frame sent from coordinator commanding a node to perform a calibration
-#if CAL
-				sensorRcvCalCommand((sftCalCommand*)frame);
-#endif
-				break;
-
-			case SET_NODE_NAME:
+    		case SET_NODE_NAME:
 				sensorSetNodeNameRcv(((sftSetName *)frame)->name);
 				break;
+
+    		case SET_ARG_FRAME:
+    			sensorSetArgument(((sftSetArgs*)frame)->arg_1,((sftSetArgs*)frame)->arg_2);
+
+
+    			break;
 
 			default:
 				break;
@@ -729,23 +576,20 @@ void
 sensorRequestReading(u16 addr, u16 time)
 {
 
-    {
-        sftRequestData req;
-        req.type = REQ_READING_FRAME;
-        req.time = time;
+	sftRequestData req;
+	req.type = REQ_READING_FRAME;
+	req.time = time;
 
- debugMsgStr("\r\nSending Report-Interval-Request to node:");
- debugMsgInt(addr);
- debugMsgStr(" to:");
- debugMsgInt(time);
- debugMsgStr("00 ms");
+debugMsgStr("\r\nSending Reading-Interval-Request to node:");
+debugMsgInt(addr);
+debugMsgStr(" to:");
+debugMsgInt(time);
+debugMsgStr("00 ms");
 
-        if (IPV6LOWPAN)
-            sixlowpan_sensorSend(addr, sizeof(sftRequestData), (u8*)&req);
-        else
-            macDataRequest(addr, sizeof(sftRequestData), (u8*)&req);
-    }
-
+	if (IPV6LOWPAN)
+		sixlowpan_sensorSend(addr, sizeof(sftRequestData), (u8*)&req);
+	else
+		macDataRequest(addr, sizeof(sftRequestData), (u8*)&req);
 }
 
 
@@ -756,7 +600,7 @@ CoordRcvSensorReading(sftSensorReading *reading)
 
 	if (SERIAL)
 	{
-		sprintf(str,"\r\nSensor %d :", reading->SensorUnitID);
+		sprintf(str,"Sensor %d :", reading->SensorUnitID);
 		serial_puts(str);
 
 		sprintf(str,"%1.2f", (double) reading->readings[0]);
@@ -770,7 +614,7 @@ CoordRcvSensorReading(sftSensorReading *reading)
 				break;
 			case Baro:
 			case BMP085:
-				serial_puts(" Baro=");
+				serial_puts(" TempBaro=");
 				serial_puts((char *)str);
 				serial_puts(" DegC,");
 				serial_puts(" Baro=");
@@ -812,108 +656,35 @@ CoordRcvSensorReading(sftSensorReading *reading)
 		debugMsgInt(radioGetSavedRssiValue());
 		debugMsgStr(", locLQI=");
 		debugMsgInt(radioGetSavedLqiValue());
+		serial_puts("\r\n");
+
 
 	}
 
 
 }
-/**
-   Callback function to receive calibration information from a sensor
-   node.
 
-   param:  calInfo Pointer to tCalInfo structure that contains the node's
-   calibration information.
-*/
-static void sensorCalProcess(void);
-
-static void
-sensorRcvCalInfo(sftCalInfo *calInfo)
-{
-
-    {
-        // Cal info received, perform a calibration.
-        *coordCalInfo = *calInfo;
-        if (DEBUG)
-            // Start the callback function going
-            if (INTERACTIVE)
-            {
-                sensorCalProcess();
-            }
-    }
-
-}
-
-static void
-sensorRcvRawData(sftRawData *rawData)
-{
-    {
-        // Do what you want with the raw data
-    }
-}
 void
 CoordRcvSensorPacket(u8 *frame, u8 len )
 {
+#if DEBUG==2
+	debugMsgStr(" -- CoordRcvSensorPacket");
+#endif
+    // Sensor frame type is always first byte of frame
 
-		debugMsgStr(" -- CoordRcvSensorPacket");
-       // Sensor frame type is always first byte of frame
-        switch (((sftRequest*)frame)->type)
-        {
+	switch (((sftRequest*)frame)->type)
+	{
         case READING_FRAME:
             // Frame containing a node's sensor reading
             CoordRcvSensorReading((sftSensorReading *)frame);
             break;
-        case CAL_INFO_FRAME:
-            // Frame containing a node's calibration information
-            sensorRcvCalInfo((sftCalInfo*)frame);
 
-            break;
-        case RAW_DATA_FRAME:
-            // Frame containing a node's raw data (A/D) readings
-            sensorRcvRawData((sftRawData*)frame);
-            break;
         default:
             break;
-        }
-
-
+	}
 }
 
 
-/**
-   Request an end node to send its calibration information.  When the
-   node responds with the info,   sensorRcvCalInfo() is called.
-
-   param:  addr Short address of node
-*/
-void
-sensorRequestCalInfo(u16 addr)
-{
-
-        sftRequest req;
-
-        req.type = CAL_REQ_INFO_FRAME;
-
-        // Clear the cal info struct
-        coordCalInfo->type = 0;
-
-#if IPV6LOWPAN
-        sixlowpan_sensorSend(addr, sizeof(sftRequestData), (u8*)&req);
-#else
-        macDataRequest(addr, sizeof(sftRequestData), (u8*)&req);
-#endif
-}
-
-void sensorRequestRawData(u16 addr)
-{
-        sftRequest req;
-        req.type = REQ_RAW_DATA_FRAME;
-
-#if IPV6LOWPAN
-        sixlowpan_sensorSend(addr, sizeof(sftRequestData), (u8*)&req);
-#else
-        macDataRequest(addr, sizeof(sftRequestData), (u8*)&req);
-#endif
-}
 
 /**
    Set the name of the sensor name.
@@ -938,107 +709,23 @@ sensorSendSetNodeName(u16 addr, char *name)
 #endif
 }
 
-
-// Index is 0 for first point, 1 for second point
 void
-sensorSendCalPoint(u8 index, char *str)
+sensorSendArgument( u16 addr, short arg_1, short arg_2)
 {
+	sftSetArgs frame;
 
-    {
-        sftCalCommand calCmd = {
-            .type = CAL_CMD_FRAME,
-            .index = index};
-        strncpy((char*)calCmd.reading, str, 6);
-        // Send packet to sensor node
+	frame.type = SET_ARG_FRAME;
+	frame.arg_1 = arg_1;
+	frame.arg_2 = arg_2;
+
+
+        // Send frame
 #if IPV6LOWPAN
-        sixlowpan_sensorSend(coordCalInfo->addr, sizeof(sftCalCommand), (u8*)&calCmd);
+        sixlowpan_sensorSend(addr, sizeof(sftSetName), (u8*)&frame);
 #else
-        macDataRequest(coordCalInfo->addr, sizeof(sftCalCommand), (u8*)&calCmd);
+        macDataRequest(addr, sizeof(sftSetName), (u8*)&frame);
 #endif
-       debugMsgStr("\r\nSent cal data to sensor");
-    }
-
 }
-
-/**
-   Coord node calibration routine. This must be called repetitively
-   because the sensor node must be queried constantly to get current
-   A/D readings.
-*/
-#if (DEBUG && SERIAL)
-static void
-sensorCalProcess(void)
-{
-
-        // Save state of where we're at
-        static enum {start, read1, read2} progress;
-        char str[12];
-
-        switch (progress)
-        {
-        case start:
-            // Print out intro, start getting A/D readings
-            debugMsgStr("\r\nCal node, enter applied reading A [");
-//            debugMsgStr((char *)coordCalInfo->units);
-            debugMsgStr("]:");
-            progress++;
-            busyCal = true;
-            break;
-        case read1:
-            // Don't block unless we have at least one serial char
-            if (serial_ischar())
-            {
-                // Get reading, send to sensor node
-                serial_gets(str,10,true);
-                // Send frame to sensor node with cal data
-                sensorSendCalPoint(0, str);
-
-                progress++;
-
-                // Output stuff for next reading
-                if (coordCalInfo->calType == 2)
-                {
-                    debugMsgStr("\r\nCal node, enter applied reading B [");
-//                    debugMsgStr((char *)coordCalInfo->units);
-                    debugMsgStr("]:");
-                }
-            }
-            break;
-        case read2:
-            // Get reading two, if there is one
-            if (coordCalInfo->calType == 2)
-            {
-                // Need a second reading
-                if (serial_ischar())
-                {
-                    // Get reading, send to sensor node
-                    serial_gets(str,10,true);
-                    progress++;  // Default will Start over
-
-                    // Send frame to sensor node with cal data
-                    sensorSendCalPoint(1, str);
-                }
-            }
-            else
-                // Don't bother with second reading
-                progress++;
-            break;
-        default:
-            // Quit, don't call this function again
-            // End the cal process, reset progress for next time.
-            busyCal = false;
-            progress = start;
-            // Return so that we don't re-call this function
-            return;
-        }
-        // Thank you, come again!
-        macSetAlarm(50, sensorCalProcess);
-
-}
-#endif
-
-
-
 
 #endif
 
@@ -1047,6 +734,7 @@ sensorCalProcess(void)
 
 char *sensorGetName(void) {return NULL;}
 void sensorSendSetNodeName(u16 addr, char *name) {}
+void sensorSendArgument( u16 addr, u8 arg_c, short arg_v){}
 
 #endif // APP == SENSOR
 

@@ -92,19 +92,10 @@ typedef struct
 	tAD_data Readings[10];			// the individual readings the sensor broadcasts
 } __attribute__((packed)) tBC_Data;
 
-#ifndef CAL
-/// Calibration flag, only compiles calibration code in if the flag is set.
-#define CAL 0
-#endif
 
 #if (APP == SENSOR)
 
-
-// What kind of node are we going to be?
-#define CAL_POINTS 1  // 1-point cal
-
 #define RETRY_WAIT_PERIOD 50   // Time (mS) to wait after a packet failed to try again.
-
 
 /*
    data_structures Data Structures
@@ -115,16 +106,13 @@ typedef struct
 */
 
 /*
-   Sensor frame types
+   Sensor application frame types
 */
 #define SET_NODE_NAME          2   ///< Frame directing the node to change its name string
 #define REQ_READING_FRAME      3   ///< Frame requesting that a node begin sending sensor readings
 #define READING_FRAME          4   ///< Frame containing a node's sensor reading
-#define CAL_REQ_INFO_FRAME     5   ///< Frame requesting a node's calibration information
-#define CAL_INFO_FRAME         6   ///< Frame containing a node's calibration information
-#define REQ_RAW_DATA_FRAME     7   ///< Frame requesting a node's raw data (A/D) readings
-#define RAW_DATA_FRAME         8   ///< Frame containing a node's raw data (A/D) readings
-#define CAL_CMD_FRAME          9   ///< Frame sent from coordinator commanding a node to perform a calibration
+#define SET_ARG_FRAME		   5 // send arguments to the sensor node from the coordinator
+
 /** @} */
 
 /// Length of node name string
@@ -133,12 +121,6 @@ typedef struct
     the coordinator.
 */
 
-// Save cal data (sensor node), used to interactively build the info
-	// over time by getting data back from coordinator
-	typedef struct{
-		double reading[2];  // Entered readings (from coord)
-		u16 ad[2];          // A/D readings from sensor (matching
-	} __attribute__((packed)) tCalData;
 
 typedef struct{
     u8    				Frametype;    		// Frame type, see   READING_FRAME -- NOTE: this is a waste of space when only 8 frame types are known
@@ -151,27 +133,17 @@ typedef struct{
     sensor node to reply with its cal info
 */
 typedef struct{
-    u8    type;          ///< Frame type, see   CAL_REQ_INFO_FRAME and   REQ_RAW_DATA_FRAME
+    u8    type;          ///< Frame type,
 } __attribute__((packed)) sftRequest;
 
 /** Sensor data request packet, sent by coordinator to ask
     sensor node to reply with its computed data
 */
 typedef struct{
-    u8    type;          ///< Frame type, see   CAL_REQ_INFO_FRAME and   REQ_RAW_DATA_FRAME
+    u8    type;          ///< Frame type,
     u16   time;          ///< Interval between data frames, in 100mSec intervals.
 } __attribute__((packed)) sftRequestData;
 
-
-/** Sensor calibration info packet, sent by sensor node to report its data to the
-    coordinator
-*/
-typedef struct{
-    u8    type;          ///< Frame type, see   CAL_INFO_FRAME
-    u8    calType;       ///< Calibration type, 1=1point, 2=2point
-    u16   addr;          ///< Node address
-    u8    units[5];      ///< Units of sensor reading, as an ASCII string
-} __attribute__((packed)) sftCalInfo;
 
 /** Change name of node packet, sent to sensor node */
 typedef struct{
@@ -179,48 +151,31 @@ typedef struct{
     char  name[NAME_LENGTH]; ///< Name of sensor
 } __attribute__((packed)) sftSetName;
 
-/** Raw data (A/D reading) from a sensor node.
-*/
+/** Change argument values in sensor node */
 typedef struct{
-    u8    type;          ///< Frame type, see   RAW_DATA_FRAME
-    u16   reading;       ///< Current A/D reading
-} __attribute__((packed)) sftRawData;
-
-/** Calibration command frame, sent from the coordinator to a
-    end/router node, commanding the node to perform a calibration.
-    This packet contains the data required for the calibration.
-*/
-typedef struct{
-    u8    type;           ///< Frame type, see   CAL_CMD_FRAME
-    u8    index;          ///< Which reading is this - first or second (0 or 1)?
-    u8    reading[8];     ///< The user-entered cal reading, as asciiz string
-} __attribute__((packed)) sftCalCommand;
-
+    u8 type  ;         // Frame type,
+    short arg_1;	    // argument index 0-3
+    short arg_2; 		// Argument value
+} __attribute__((packed)) sftSetArgs;
 
 extern u16 node_addr;
 
 void Sensor_HW_Init( void);
 void sensorRcvPacket(u8 *payload, u8 len);
-
-void sensorRequestCalInfo(u16 addr);
-void sensorRequestRawData(u16 addr);
 void sensorSendSetNodeName(u16 addr, char *name);
-void sensorSendCalPoint(u8 index, char *str);
-
 char *sensorGetName(void);
-void sensorSendSetNodeName(u16 addr, char *name);
+void sensorSendArgument( u16 addr, short arg_1, short arg_2);
 void sensorPacketSendSucceed(void);
 void sensorPacketSendFailed(void);
 void sensorLostNetwork(void);
-
 void sixlowpan_sensorPerSend(u8 len, u8 * data);
 void sixlowpan_sensorSend(u16 addr, u8 len, u8 * data);
 void sixlowpan_sensorReturn(u8 len, u8 * data);
+void SensorStartReadings(void);
 void SensorSendReading(void);
 
 #if NODETYPE == COORD
 	extern char node_name[NAME_LENGTH];
-//	extern sftCalInfo coordCalInfo;
 #endif
 
 #endif	// APP==SENSOR

@@ -9177,7 +9177,7 @@
 <listOptionValue builtIn="false" value="DEBUG=1"/>
 <listOptionValue builtIn="false" value="APP=1"/>
 <listOptionValue builtIn="false" value="IPV6LOWPAN=0"/>
-<listOptionValue builtIn="false" value="SENSOR_TYPE=SENSOR_HYG"/>
+<listOptionValue builtIn="false" value="SENSOR_TYPE=SENSOR_BMP085"/>
 </option>
 <option id="de.innot.avreclipse.compiler.option.std.1062321163" name="Language Standard" superClass="de.innot.avreclipse.compiler.option.std" value="de.innot.avreclipse.compiler.option.std.gnu99" valueType="enumerated"/>
 <option id="de.innot.avreclipse.compiler.option.debug.type.1627048261" name="Debug Info Format" superClass="de.innot.avreclipse.compiler.option.debug.type" value="de.innot.avreclipse.compiler.option.debug.level.dwarf-2" valueType="enumerated"/>

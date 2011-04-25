@@ -175,9 +175,9 @@ macDataRequestInt(u16 addr, u8 len, u8 * data, u8 type)
     if (!macConfig.associated)
         // This node has no short address
         return;
-
+#if DEBUG==2
     debugMsgStr("\r\nmacDataRequest->");
-
+#endif
     // Build the frame.
     data_frame->fcf = FCF_DATA;
     data_frame->seq = macConfig.dsn++;
@@ -243,8 +243,10 @@ macDataRequestInt(u16 addr, u8 len, u8 * data, u8 type)
         else
         {
             // Node is not sleeping child, send it now.
+#if DEBUG==2
         	debugMsgStr("-- macSetAlarm set");
-            macSetAlarm(rpSent ? MAC_RP_DELAY : MAC_DATA_DELAY, mdr_timer);
+#endif
+        	macSetAlarm(rpSent ? MAC_RP_DELAY : MAC_DATA_DELAY, mdr_timer);
         }
     }
 #  else
@@ -331,9 +333,9 @@ macDataIndication(u16 dest)
     // Sort out the different types of data packets.
    ftData *frame = (ftData*)(mac_buffer_rx+1);
    u8 pl_len = *mac_buffer_rx - 16;
-
+#if DEBUG==2
     debugMsgStr("\r\nmacDataIndication<-");
-
+#endif
     switch (frame->type & 0x7f)  // Mask high bit just in case it was somehow missed
     {
 		case DATA_FRAME:

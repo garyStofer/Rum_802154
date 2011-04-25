@@ -12,6 +12,7 @@
 #include <math.h>
 #include <compat/twi.h>
 #include "system.h"
+#include "EE_prom.h"
 #include "i2c.h"
 
 static bool Tmp100_Present = false;
@@ -510,6 +511,8 @@ bool HP03_Read(float * t , float *p)
 #define SHT_t1 0.01
 #define SHT_t2 0.00008
 
+// The SHT11 device is not an I2C device,
+
 // Reading the SHT1x device PullUp and Tristate port when "driving" a H on the data line
 // This is needeed in order to prevent drive contention in the device
 // Note: This Device does not conform to the I2C standard of communication and is most likely not compatible
@@ -599,10 +602,14 @@ return SO;
 }
 #define RH_THRES 70
 #define RH_HYST 5
+
+
 bool SHT1xRead(float *temp, float *Rh)
 {
 	short SOt, SOrh;
 	float T, RH;
+	volatile short thresh, hyst;
+
 
 	SOt  = SHT1xRead_OC(SHT_TEMP_CMD);
 	SOrh = SHT1xRead_OC(SHT_RH_CMD);
@@ -613,9 +620,18 @@ bool SHT1xRead(float *temp, float *Rh)
 	*temp = T;
 	*Rh = RH;
 
-	if (RH < RH_THRES)
+	halGetSensorArgs(&thresh,0);		// using arg0 from eeprom as threshold
+	halGetSensorArgs(&hyst,1);
+
+	if (thresh+hyst > 97)
+	{
+		thresh = 92;
+		hyst=5;
+	}
+
+	if (RH < thresh)
 		PORTD |= 0x10;					//turn Hydrostat relay on
-	else if (RH >(RH_THRES+RH_HYST))
+	else if (RH >(thresh+hyst))
 		PORTD &= ~0x10;					// turn Hydrostat relay off
 
 	return 1;

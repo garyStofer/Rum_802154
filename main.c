@@ -121,7 +121,9 @@ Device_init()
     	    		BMP085_init();
 
      	if ( SENSOR_TYPE==SENSOR_HYG ) // Make PD4 an output
+     	{
      		DDRD  |=  0x10;
+     	}
 
 
       	Sensor_HW_Init();		// analog sensors
