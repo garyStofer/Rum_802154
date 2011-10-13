@@ -513,7 +513,7 @@ bool HP03_Read(float * t , float *p)
 
 // The SHT11 device is not an I2C device,
 
-// Reading the SHT1x device PullUp and Tristate port when "driving" a H on the data line
+// Reading the SHT1x device: PullUp and Tristate port when "driving" a H on the data line
 // This is needeed in order to prevent drive contention in the device
 // Note: This Device does not conform to the I2C standard of communication and is most likely not compatible
 // with other devices on the I2C bus concurrently.
@@ -573,7 +573,7 @@ static short SHT1xRead_OC(unsigned char cmd)
 // TODO this should be better guarded against device failure
 	  while ( PINC & 0x2 )	// Wait for the measure to finish, signaled by "Low" on data line
 		  ;
-	  // Read the 16 Bit of data from the device for the commanded reading -- Provide ACK pulse to device agter first 8 bit
+	  // Read the 16 Bit of data from the device for the commanded reading -- Provide ACK pulse to device after first 8 bit
 	  for(i = 16; i; )
 	  {
 		  i--;
@@ -593,8 +593,11 @@ static short SHT1xRead_OC(unsigned char cmd)
 	  }
 
 	  // Terminate transfer by sending NAK
+	  DDRC = 0x1; 	// input, pull up for a high -- should be input from loop already
 	  PORTC = 0;	// extra time to allow Pu to rasie dataline
 	  PORTC = 0;	// extra time to allow Pu to rasie dataline
+	  PORTC = 0;	// extra time to allow Pu to rasie dataline
+	  PORTC =0x1;	// ACK clock  -- Data is high == NAK
 	  PORTC =0x1;	// ACK clock  -- Data is high == NAK
 	  PORTC =0x0; 	// ACK clock done
 

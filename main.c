@@ -114,13 +114,13 @@ Device_init()
     	if (SENSOR_TYPE==SENSOR_TMP100 )
     		TMP100_init(TMP100_12_BitCONF);
 
-    	if ( SENSOR_TYPE==SENSOR_BARO )
+    	if ( SENSOR_TYPE==SENSOR_HP03 )
     		HP03_init();
 
     	if ( SENSOR_TYPE==SENSOR_BMP085 )
     	    		BMP085_init();
 
-     	if ( SENSOR_TYPE==SENSOR_HYG ) // Make PD4 an output
+     	if ( SENSOR_TYPE==SENSOR_SHT11 ) // Make PD4 an output
      	{
      		DDRD  |=  0x10;
      	}

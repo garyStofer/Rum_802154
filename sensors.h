@@ -49,8 +49,8 @@ u8 sensorCalBusy(void);
 #define SENSOR_NET       	1  // Network stats , RSSI
 #define SENSOR_TMP100	 	2
 #define SENSOR_BAT		 	3
-#define SENSOR_BARO		 	4
-#define SENSOR_HYG		 	5
+#define SENSOR_HP03		 	4
+#define SENSOR_SHT11		 	5
 #define SENSOR_GAS_HC 	 	6
 #define SENSOR_GAS_CO 	 	7
 #define SENSOR_BMP085		8
@@ -66,8 +66,8 @@ typedef enum {None = SENSOR_NONE,
 			  RSSI = SENSOR_NET,
 			  TMP100 = SENSOR_TMP100,
 			  V_bat = SENSOR_BAT,
-			  Baro = SENSOR_BARO,
-			  Hyg = SENSOR_HYG,
+			  Baro = SENSOR_HP03,
+			  Hyg = SENSOR_SHT11,
 			  V_Hc = SENSOR_GAS_HC,
 			  V_Co2 =SENSOR_GAS_CO,
 			 BMP085 = SENSOR_BMP085

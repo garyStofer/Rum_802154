@@ -296,7 +296,7 @@ SensorSendReading(void)
 			BMP085_Read(&reading.readings[0] , &reading.readings[1]);
 			break;
 
-		case SENSOR_HYG:
+		case SENSOR_SHT11:
 			reading.SensorType = Hyg;
 			SHT1xRead(&reading.readings[0], &reading.readings[1]);
 			break;
@@ -311,7 +311,7 @@ SensorSendReading(void)
 			reading.readings[0] = TMP100_read();
 			break;
 
-		 case SENSOR_BARO:
+		 case SENSOR_HP03:
 			reading.SensorType = Baro;
 			HP03_Read(&reading.readings[0] ,&reading.readings[1]);
 			break;
