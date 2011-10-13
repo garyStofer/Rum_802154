@@ -1,4 +1,4 @@
-#Wed Jun 02 13:46:02 PDT 2010
+#Wed Oct 12 22:26:35 PDT 2011
 avrtarget/ClockFrequency=8000000
 avrtarget/ExtRAMSize=0
 avrtarget/ExtendedRAM=false
@@ -47,7 +47,7 @@ avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.36677
 avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/NoVerify=false
 avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/NoWrite=false
 avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/OtherOptions=
-avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/ProgrammerID=programmerconfig.3
+avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/ProgrammerID=programmerconfig.2
 avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/UseCounter=false
 avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/WriteEEPROM=false
 avrtarget/de.innot.avreclipse.configuration.app.debug.473967099.1297298062.366772733/avrdude/WriteFlash=true

@@ -55,7 +55,7 @@
 
 
 
-#if (IPV6LOWPAN == 1))
+#if (IPV6LOWPAN == 1)
 
 /**
  * @addtogroup app
