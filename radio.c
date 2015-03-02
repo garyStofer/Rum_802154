@@ -86,7 +86,6 @@ static u8 rssi_val;
 /*============================ PROTOTYPES ====================================*/
 static bool isSleeping(void);
 void radioRxStartEvent(u8 const frame_length);
-void radioTrxend_event(void);
 
 
 /**
@@ -257,8 +256,8 @@ void radioTrxEndEvent(void)
         {
         	case FCF_BEACONREQ:
 				// Beacon request
-				if ((NODETYPE == ROUTER && macConfig.associated) ||
-					NODETYPE == COORD)
+				if ((NODE_TYPE == ROUTER && macConfig.associated) ||
+					NODE_TYPE == COORD)
 					event.event = MAC_EVENT_BEACON_REQUEST;
 #if DEBUG==2
 debugMsgStr("\r\nRX BR");
@@ -283,13 +282,13 @@ debugMsgStr(" - NoScan");
 
 			case FCF_ASSOC_REQ_DIRECT:
 				// Association Request, direct
-				if ((NODETYPE == ROUTER || NODETYPE == COORD))
+				if ((NODE_TYPE == ROUTER || NODE_TYPE == COORD))
 					event.event = MAC_EVENT_ASSOCIATION_REQUEST;
 				break;
 
 			case FCF_ASSOC_RESP_DIRECT:
 				// Association response, direct
-				if (NODETYPE != COORD)
+				if (NODE_TYPE != COORD)
 					event.event = MAC_EVENT_ASSOCIATION_RESPONSE;
 				break;
 
@@ -300,25 +299,25 @@ debugMsgStr(" - NoScan");
 
 				case 1:
 					// Association request
-					if (NODETYPE == ROUTER || NODETYPE == COORD)
+					if (NODE_TYPE == ROUTER || NODE_TYPE == COORD)
 						event.event = MAC_EVENT_ASSOCIATION_REQUEST;
 					break;
 
 				case 2:
 					// Association response
-					if (NODETYPE != COORD)
+					if (NODE_TYPE != COORD)
 						event.event = MAC_EVENT_ASSOCIATION_RESPONSE;
 					break;
 
 				case ROUTING_PACKET:
 					// Routing packet
-					if (NODETYPE != COORD)
+					if (NODE_TYPE != COORD)
 						event.event = MAC_EVENT_ROUTE;
 					break;
 
 				default:
 					break;
-            }
+            } break;
         default:
             break;
         }
@@ -476,7 +475,7 @@ radio_status_t radioSetTxPowerLevel(u8 power_level)
     return RADIO_SUCCESS;
 }
 
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
 /*! \brief This function will read and return the output power level.
  *
  *  \return 0 to 15 Current output power in "TX power settings" as defined in
@@ -854,7 +853,7 @@ radio_status_t radioSetTrxState(u8 new_state)
 
     return set_state_status;
 }
-#if ((NODETYPE == ENDDEVICE) && (RUMSLEEP == 1) )
+#if ((NODE_TYPE == ENDDEVICE) && (NODE_SLEEP == 1) )
 /*! \brief  This function will put the radio transceiver to sleep.
  *
  *  \retval    RADIO_SUCCESS          Sleep mode entered successfully.
@@ -1106,33 +1105,29 @@ void radioSetExtendedAddress(u8 *extended_address)
  */
 u8 radioRandom(u8 bits)
 {
-    if ((NODETYPE == ROUTER || NODETYPE == COORD) || APP)
-    {
-        volatile u8 val=0;
-        volatile u8 regval;
-        u8 i;
+	volatile u8 val=0;
+	volatile u8 regval;
+	u8 i;
 
-        i = radioGetTrxState();
-        if ((radioGetPartnum() == RF231 ||    // RF231
-             radioGetPartnum() == RF212 ) &&      // RF212
-            (i == RX_ON ||
-             i == RX_AACK_ON))       // Must be in rx to get random numbers
-        {
-            // Random number generator on-board
-            // has two random bits each read
-            for (i=0;i<bits/2;i++)
-            {
-                regval = radio_subregister_read(SR_RND_VALUE);
-                val = (val << 2) | regval;
-            }
-            return val;
-        }
-        else
-            // use library function.
-            return rand();
-    }
-    else
-        return 0;
+	i = radioGetTrxState();
+	if ((radioGetPartnum() == RF231 ||    // RF231
+		 radioGetPartnum() == RF212 ) &&      // RF212
+		(i == RX_ON ||
+		 i == RX_AACK_ON))       // Must be in rx to get random numbers
+	{
+		// Random number generator on-board
+		// has two random bits each read
+		for (i=0;i<bits/2;i++)
+		{
+			regval = radio_subregister_read(SR_RND_VALUE);
+			val = (val << 2) | regval;
+		}
+		return val;
+	}
+	else
+		// use library function.
+		return rand();
+
 }
 
 /**
@@ -1227,7 +1222,7 @@ void radioSetup(void)	// only called from MAC_Init
     radio_subregister_write(SR_CSMA_SEED_1, radioRandom(3) );
 
      // Set up radio's coordinator flag
-    radioSetDeviceRole(NODETYPE == COORD);
+    radioSetDeviceRole(NODE_TYPE == COORD);
 
     // Setup radio's short addess
     radioSetShortAddress(macConfig.shortAddress);

@@ -58,8 +58,6 @@
    - Multi-hop routing is supported.  There is no practical limit to
      the number of hops.
 
-   - IPv6 Support allows nodes to communicate across the world seamlessly.
-
    - Open protocol.  Free for use with Atmel hardware.
 
      api Application Programming Interface
@@ -209,30 +207,8 @@
 
    The   serial module provides a serial port for the AVR targets.
 
-   @subsection ipv6_commands IPv6 Router and End-Node Commands
 
-   The router and end-node provide limited IPv6 support. The functions
-   for IPv6 are tailored to perform the most likely actions an end-node
-   would require, rather than supporting the entire IPv6 standard. This
-   includes ping responses, ping requests, and UDP support. The easiest
-   method of understanding is to study the   avr6lowpan_example.
-
-   - sixlowpan_udp_usercall() is called when an incoming UDP frame is
-     received. The user can then process the data, and optionally send
-     a response back to the source.
-
-   - sixlowpan_hc01_udp_setup_ipglobal() Is used to set up an outgoing
-     UDP frame to a global IP address. See the   avr6lowpan_example
-     source code for an example.
-
-   - sixlowpan_hc01_ping_setup_ipglobal() Is used to set up an outgoing
-     ping request to a global IP address. See the   avr6lowpan_example
-     source code for an example.
-
-   - sixlowpan_ping_usercall() is called when an incoming echo response
-     is received.
-
-     comps Components
+    Components
 
    There are a few modules that make up this project.  These are all
    compiled together into one object file, but some of these modules
@@ -240,7 +216,6 @@
 
    -   app provided as a basis for a simple user application.
 
-   -   avr6lowpan 6LoWPAN Layer to provide IPv6 Connectivity
 
    -   mac.  A subset of the MAC defined by IEEE 802.15.4.  This
      includes multi-hop and self-forming functionality.
@@ -331,7 +306,7 @@
 
    - TYPE can be END, ROUTER, or COORD.  This directs which kind of
      node is being compiled.  This parameter is required.  The
-     makefile sets the   NODETYPE macro.
+     makefile sets the   NODE_TYPE macro.
 
    -   PLATFORM can be ... , RAVEN,
      This sets the MCU flag and other parameters to compile
@@ -341,12 +316,7 @@
      together. It does not specify which radio chip is being used,
      though it does specify the   BAND macro.
 
-   -   IPV6LOWPAN can be 0 or 1.  This flag, if set to one, causes
-     6LoWPAN to be compiled in, which causes RUM to use compressed
-     IPV6 frame in accordance with RFC4944.  This allows nodes to be
-     addressed worldwide by a world-unique IPV6 internet address. If
-     IPV6LOWPAN is zero, then no 6LoWPAN or IPv6 code will be compiled
-     in. Disabling IPV6 saves some space if it will not be used.
+
 
    -   DEBUG can be 1 or 0.  This enables/disables diagnostic
      messages from the serial port.  Disabling DEBUG will greatly
@@ -358,18 +328,13 @@
      by (in sequence) best LQI, lowest number of hops to the
      coordinator, and then RSSI.
 
-   -   APP can be 0 or 1 (  SENSOR).  If APP is zero, then no
-     application is linked in other than the default minimal
-     application.
-
-   -   RUMSLEEP can be 0 or 1. This enables/disables the sleep
+   -   NODE_SLEEP can be 0 or 1. This enables/disables the sleep
      code.  In the sensor application, an end node will go to sleep
-     between readings if RUMSLEEP is set to one.  This sleep code is
+     between readings if NODE_SLEEP is set to one.  This sleep code is
      general-purpose and can be used by new applications also.  On
      coordinator and router nodes, this option makes a parent node
      store a frame destined for a sleeping child node, and will send
-     the frame to the child immediately after it has woken up.  See
-     also the   VLP flag.
+     the frame to the child immediately after it has woken up.
 
    -   PAN_CHANNEL sets a fixed channel for the node.  If
      PAN_CHANNEL is not set, then the node will scan all channels.
@@ -379,10 +344,6 @@
      will only scan one channel, and cannot find any network operating
      on any other channel.
 
-   -   PAN_ID sets the PAN ID for the node.  Only the coordinator
-     uses this definition.  If PAN_ID is not set, then the coordinator
-     chooses a random PAN ID.  The routers and end nodes get the PAN
-     ID from the coordinator.
 
    After compiling, you can load the code using a tool like avarice or
    avrdude.  Debugging is possible under linux using avarice and a
@@ -413,13 +374,6 @@
      the build.  This flag is defined in sensors.c, and cannot be
      specified from the command line.  If set to one, then the
      calibration code is compiled in.
-
-   -   VLP puts the node into Very Low Power mode. This is meant
-     for nodes with limited power capacity - for example, an
-     energy-harvesting node, or a node running on low-current
-     batteries.  In this mode, the node cannot stay awake for more
-     than a few hundred milliseconds, and cannot be woken up
-     indefinitely.  This option is off by default.
 
    -   SERIAL brings in the serial code.  If you are compiling with
        DEBUG on, then you need either SERIAL or OTA_DEBUG set.
@@ -492,22 +446,12 @@
 
    @ingroup app
 */
-#define SENSOR     1
+
 #define IPSO       2		// only used in sixlowpan
 #define DSKIPDEMO  3		// only used in sixlowpan
 
-#ifndef APP
-/**
-   The APP macro is used to define which application gets compiled in.
-   If this macro is defined as zero, then only the basic demo
-   application gets compiled.  If you set this macro to the value of
-     SENSOR, then the sensor app gets compiled in.
 
-   @ingroup app
- */
 
-#define APP 0
-#endif
 
 /**
    Enable or disable the sleep function by setting this macro to 1
@@ -515,8 +459,8 @@
 
    @ingroup app
 */
-#ifndef RUMSLEEP
-#define RUMSLEEP 1
+#ifndef NODE_SLEEP
+#define NODE_SLEEP 1
 #endif
 
 /**
@@ -525,24 +469,9 @@
 
    @ingroup app
 */
-#ifndef IPV6LOWPAN
- #if __AVR__ && NODETYPE == COORD
-  #define IPV6LOWPAN 0      // No AVR 6LoWPAN coordinators allowed
-  #warning "IPV6LOWPAN set to zero for AVR target coordinator"
- #else // __arm__
-  #define IPV6LOWPAN 1
- #endif
-#endif
 
-#if IPV6LOWPAN && __AVR__ && NODETYPE == COORD
-#error "You cannot build an AVR 6LoWPAN coordinator.  Sorry."
-#endif
-
-#if ( IPV6LOWPAN || APP  || NODETYPE == BC_ENDDEVICE )
 #define LONG_TIMER 1
-#else
-#define LONG_TIMER 0
-#endif
+
 // App functions
 void appInit(void);
 
@@ -553,15 +482,15 @@ void appAssociateConfirm(bool associated);
 void appPacketSendAccessFail(void);
 void appPacketSendFailed(void);
 void appPacketSendSucceed(void);
-void appTask(void);
+void appMenu(void);
 void appPingReq(ftPing *pf);
 void appPingRsp(ftPing *pf);
 void appSixlowpanPingResponse(void);
 void appDataIndication(u8 * payload, u8 len, bool broadcast);
 void appChildAssociated(u16 shortAddress);
 void appNodeAssociated(u16 shortAddress);
-void blink_red(u8);
-void blink_blue(u8);
+void blink_led0(u8);
+void blink_led1(u8);
 
 // MAC layer functions
 void macInit(u8 Channel);

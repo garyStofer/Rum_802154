@@ -4,7 +4,6 @@
  *  Created on: May 27, 2010
  *      Author: Gary
  */
-#include <math.h>
 #include "hal.h"
 #include "radio.h"
 #include "EE_prom.h"
@@ -15,22 +14,39 @@
    is written into EEPROM.
 
    Similarly, the sensor interval time is set to 2 seconds if the
-   EEPROM is unprogrammed.
+   EEPROM is un-programmed.
  */
 
 // This gets programmed into the EEPROM if AVRDUDE is configured so that it loads the .eep file from the build.
-// Also make sure that the "preseve EEPROM" is not set in the fuse bits, otherwise the programming does not work
-// because the EEPROM is beeing restored to the previous values
- u8 EEMEM eeContent[13]= {0xaa,0xFE,0xba,0x11,0x12,0x01,0x00,0,0,0,0,20,0}; // Not very useful for MAC addr since all devices would get the same address
+// Also make sure that the "preserve EEPROM" is not set in the fuse bits, otherwise the programming does not work
+// because the EEPROM is being restored to the previous values
+// u8 EEMEM eeContent[15]= {0xff,0xff,0xaa,0xFE,0xba,0x11,0x12,0x01,0x00,0,0,0,0,20,0}; // Not very useful for MAC addr since all devices would get the same address
 
-//TODO: To programm individual MAC addresses per board the EEPROM needs to be programmed outside of the program download and the EEPROM preserve bit in
-//      the fuse bits set, so that it stays permanently   This will have to be a sperate process and the code below should then only check for an BAD
+//TODO: To program discrete MAC addresses per board the EEPROM needs to be programmed outside of the program download and the EEPROM preserve bit in
+//      the fuse bits set, so that it stays permanently
+// This will have to be a operate process and the code below should then only check for an BAD
 // MAC address and halt the CPU with the red LED on for example.
 
 static u16 SensorReadInterval=0;
 
 u16
-halGetFrameInterval(void)
+EE_GetPanID(void)
+{
+	volatile u16 tmp; // =0x12;
+
+	halGetEeprom((u8*)offsetof(tEepromContents, PanId), sizeof(tmp), (u8*) &tmp);
+
+	return tmp;
+}
+
+void
+EE_SetPanID( u16 panid )
+{
+	halPutEeprom((u8*)offsetof(tEepromContents, PanId), sizeof(panid),  (u8*)&panid);
+}
+
+u16
+EE_GetFrameInterval(void)
 {
 	if (! SensorReadInterval )
 	{
@@ -42,42 +58,50 @@ halGetFrameInterval(void)
 }
 
 void
-halSetFrameInterval( u16 period )
+EE_SetFrameInterval( u16 period )
 {
-	SensorReadInterval = (u8) period;
+	SensorReadInterval = period;
 	halPutEeprom((u8*)offsetof(tEepromContents, SensorframeInterval), sizeof(SensorReadInterval),  (u8*)&SensorReadInterval);
 }
 
+// Resets the eeprom contents so that the device creates a random MAC address
+// and has sane startup values
+// can be called from main during startup with a button pressed for example
 void
-checkEeprom(void)
+Clear_EEprom()
 {
 
-
-        u8 buf[8];
-        volatile u16 dataInterval; // aka frameInterval
-        u8 i,bad;
-// #define SET_EE_PROM
-
-// this just programms the MAC address to something specific -- Not very useful as all devices would endup with the same MAC addr this way
-#ifdef SET_EE_PROM
         tEepromContents eeprom;
-        eeprom.eepromMacAddress[0]= 0xca;
-        eeprom.eepromMacAddress[1]= 0xfe;
-        eeprom.eepromMacAddress[2]= 0xba;
-        eeprom.eepromMacAddress[3]= 0xad;
-        eeprom.eepromMacAddress[4]= 0x11;
-        eeprom.eepromMacAddress[5]= 0x12;
-        eeprom.eepromMacAddress[6]= 0x01;
-        eeprom.eepromMacAddress[7]= 0x00;
+
+        eeprom.PanId = 0xffff;				// Any PAN in reach will connect
+        eeprom.MacAddress[0]= 0xff;
+        eeprom.MacAddress[1]= 0xff;
+        eeprom.MacAddress[2]= 0xff;
+        eeprom.MacAddress[3]= 0xff;
+        eeprom.MacAddress[4]= 0xff;
+        eeprom.MacAddress[5]= 0xff;
+        eeprom.MacAddress[6]= 0xff;
+        eeprom.MacAddress[7]= 0xff;
         eeprom.args[0] = 0;
         eeprom.args[1] = 0;
         eeprom.args[2] = 0;
         eeprom.args[3] = 0;
-        eeprom.SensorframeInterval = 20; // 2 sec
-        halPutEeprom(offsetof(tEepromContents, eepromMacAddress), sizeof(eeprom), (u8*) &eeprom);
+        eeprom.SensorframeInterval = 50; // 5 seconds
+        halPutEeprom(0, sizeof(eeprom), (u8*) &eeprom);
+}
+// to force an EEPROM clear every time the thing boots
+// #define CLEAR_EE_PROM 1
+void
+checkEEprom(void)
+{
+        u8 buf[8];
+        u8 i,bad;
+
+#ifdef CLEAR_EE_PROM
+        Clear_EEprom();
 #endif
 
-        halGetMacAddr(buf);
+        halGetMacAddr( buf);
 
 
         for (bad=1,i=0; i<8; i++)
@@ -99,12 +123,10 @@ checkEeprom(void)
             halPutMacAddr(buf);
         }
 
-        // Get sensor send interval from  EEPROM
-        dataInterval = halGetFrameInterval();
-        if (dataInterval == 0xffff)
+        // check sensor send interval from  EEPROM not being ffff
+        if (EE_GetFrameInterval() == 0xffff)
         {
-			dataInterval = 21; 						// set to 2 seconds
-			halSetFrameInterval(dataInterval); 	// and make it so
+			EE_SetFrameInterval(20); 	// and make it 2seconds
         }
 
 }

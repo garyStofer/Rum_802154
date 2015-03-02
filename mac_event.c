@@ -163,7 +163,7 @@ macTask(void)
 				if (macConfig.associated)
 				{
 					// Wake up
-					if ((NODETYPE == ROUTER || NODETYPE == COORD))
+					if ((NODE_TYPE == ROUTER || NODE_TYPE == COORD))
 						macChildIsAwake((ftData*)(mac_buffer_rx+1));
 
 					u16 Dest = ((ftData*)(mac_buffer_rx+1))->finalDestAddr;
@@ -177,7 +177,7 @@ macTask(void)
 					else
 					{
 						// Route the packet up/down stream
-						if ((NODETYPE == ROUTER || NODETYPE == COORD))
+						if ((NODE_TYPE == ROUTER || NODE_TYPE == COORD))
 							macRouteData();
 					}
 				}
@@ -185,9 +185,9 @@ macTask(void)
 
 			case MAC_EVENT_BEACON_REQUEST:
 				// Generate and send the beacon.
-				if (NODETYPE == COORD)
+				if (NODE_TYPE == COORD)
 					sendBeaconFrame();
-				else if (NODETYPE == ROUTER && macConfig.associated)
+				else if (NODE_TYPE == ROUTER && macConfig.associated)
 				{// TODO: why does it need to be delayed -- shouldn't the CDMA take care of this
 					macSetAlarm(3, sendBeaconFrame);
 				}
@@ -204,9 +204,9 @@ macTask(void)
 
 			case MAC_EVENT_ASSOCIATION_REQUEST:
 				// Pan Coord has received this request.
-				if (NODETYPE == COORD)
+				if (NODE_TYPE == COORD)
 					macAssociationResponse();
-				else if (NODETYPE == ROUTER && macConfig.associated)
+				else if (NODE_TYPE == ROUTER && macConfig.associated)
 				{
 					// Send this packet along to parent
 					macRouteAssociateRequest();
@@ -214,8 +214,8 @@ macTask(void)
 				break;
 
 			case MAC_EVENT_ASSOCIATION_RESPONSE:
-				// End device has recieved this response.
-				if (NODETYPE != COORD)
+				// End device has received this response.
+				if (NODE_TYPE != COORD)
 				{
 					ftAssocRespDirect * resp = (ftAssocRespDirect*) (mac_buffer_rx+1);
 					//if (*((u16*)(mac_buffer_rx+1)) == FCF_ASSOC_RESP_DIRECT) // Direct to MAC Addr?
@@ -231,7 +231,7 @@ macTask(void)
 					else
 					{
 						// we are indirect, so just send this packet along.
-						if (NODETYPE == ROUTER && macConfig.associated)
+						if (NODE_TYPE == ROUTER && macConfig.associated)
 							macRouteAssociateResponse();
 					}
 				}
@@ -239,7 +239,7 @@ macTask(void)
 
 			case MAC_EVENT_ROUTE:
 				// Routing packet received, forward it
-				if (NODETYPE == ROUTER && macConfig.associated)
+				if (NODE_TYPE == ROUTER && macConfig.associated)
 					macForwardRoutingPacket();
 				break;
 

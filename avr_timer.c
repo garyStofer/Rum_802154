@@ -29,17 +29,15 @@
 /*
   $Id: avr_timer.c,v 1.1 2009/05/20 20:52:01 mvidales Exp $
 */
-#include "rum_types.h"
 #include "mac_event.h"
 #include "hal.h"
 #include "radio.h"
 #include "timer.h"
 #include "system.h"
 #include <stdlib.h>
+#include "data_types.h"
 
-#if IPV6LOWPAN
-#include "sixlowpan_wake.h"
-#endif
+
 
 /**
    @addtogroup timer_module
@@ -135,7 +133,7 @@ void timerInit(void)
     TIMER_INIT();
 
     // Init the PRNG
-    if (NODETYPE == ROUTER || NODETYPE == COORD)
+    if (NODE_TYPE == ROUTER || NODE_TYPE == COORD)
         srand(TCNT(TICKTIMER));
 
 	TIMER_CLEAR();
@@ -188,20 +186,7 @@ getUniqueTimer_ID(void)
 
 
 
-#if (IPV6LOWPAN && RUMSLEEP)
-volatile static u16 nodeSleepTimeout;
-void macSetTimeout(u16 timeout)
-{
-    if (timeout == 0)
-        timeout = 1;
 
-    AVR_ENTER_CRITICAL_REGION();
-    nodeSleepTimeout = timeout;
-    AVR_LEAVE_CRITICAL_REGION();
-
-    return;
-}
-#endif
 
 
 #define TICKS_PER_MS (u16)(1.0/((float)MS_PER_TICK))
@@ -373,20 +358,7 @@ ISR(TICKVECT)
     event_object_t event;
 
     tickTimer++;
-    
-#if ((IPV6LOWPAN && RUMSLEEP) && (NODETYPE == ENDDEVICE))
-    
-    if ((tickTimer == nodeSleepTimeout) && nodeSleepTimeout)
-    {
-        //Disable timeout
-        nodeSleepTimeout = 0;
-        
-        // Sleep timer expired!
-        event.event = MAC_EVENT_TIMER;  // Event type, see event_t for details.
-        event.data = (u8*)sixlowpanSleep_timeout;
-        mac_put_event(&event);
-    }
-#endif
+
     
     // Decrement second timer
     if (LONG_TIMER)

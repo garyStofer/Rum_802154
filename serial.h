@@ -122,7 +122,6 @@ void serial_puts_P(const char *data_p);
 u8 serial_ischar(void);
 s8 serial_getchar(void);
 u8 serial_gets(char *str, u8 len, u8 echo);
-void serial_toggle_pause(void);
 u8 rx_buf_count(void);
 u8 tx_buf_has_char(void);
 u8 get_tx_char(void);

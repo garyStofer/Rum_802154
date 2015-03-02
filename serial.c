@@ -72,7 +72,7 @@ static tcirc_buf txbuf;
 static tcirc_buf rxbuf;
 static t_rx_handler rx_handler;
 static u8 rx;
-static u8 pause; // Used to pause serial output
+
 
 enum tSerialStates {sof=0x33, len, cmd, payload, eof};
 
@@ -229,9 +229,6 @@ void serial_shutdown(void)
 */
 void serial_putchar(const char ch)
 {
-    // If we're paused, don't send anything
-    if (pause)
-        return;
 
     // Interrupts really should be on here
     sei();
@@ -380,14 +377,7 @@ u8 serial_gets(char *str, u8 len, u8 echo)
     }
 }
 
-/**
-     Toggles the pause flag.  When paused, any data sent to the
-   serial send function is dropped.
-*/
-void serial_toggle_pause(void)
-{
-    pause = !pause;
-}
+
 
 
 

@@ -34,14 +34,16 @@
 #include <stddef.h>
 #include "stdbool.h"
 #include <string.h>
-#include "rum_types.h"
 #include "mac.h"
 #include "radio.h"
 #include "mac_data.h"
+
+#include "data_types.h"
 #include "mac_scan.h"
 #include "mac_route.h"
 #include "mac_associate.h"
 #include "system.h"
+#include "System_config.h"
 #include "timer.h"
 
 
@@ -63,24 +65,21 @@
 // Define the length of the header (non-payload part) of a data frame
 #define ftDataHeaderSize offsetof(ftData, payload)
 
-//6lowpan interface (temp)
-void sixlowpan_DataIndication(ftData *frame, uint8_t payloadlen);
 
 
 // Globals
-static u16 pingAddr;  // temp var because ReallyDoPing is beeing called indirectly from timer function
+static u16 pingAddr;  // temp var because ReallyDoPing is being called indirectly from timer function
 static u16 pingType;  // temp var  ""
 
-// Stored frames (if RUMSLEEP is set)
+// Stored frames (if NODE_SLEEP is set)
 typedef struct {
     u8  len;         // Length of stored frame (zero if this element is unused)
     u16 addr;        // Short address of node to receive frame
     u8  buf[128];    // Buffer to store frame in
 } tStoredFrame;
 
-#if ((NODETYPE == COORD || NODETYPE == ROUTER) && RUMSLEEP && VLP)
-#define STORED_FRAMES  3     // Number of stored frames
-static tStoredFrame storedFrames[STORED_FRAMES ];
+#if ((NODE_TYPE == COORD || NODE_TYPE == ROUTER) && NODE_SLEEP )
+static tStoredFrame storedFrames[STORED_FRAMES]= {{0}};
 #endif
 
 
@@ -189,7 +188,7 @@ macDataRequestInt(u16 addr, u8 len, u8 * data, u8 type)
     // send a routing packet if necessary
     rpSent = macSendRoutingPacket(addr);
 
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
         // Find the child node that can route this packet
         u16 child = addr;
@@ -212,12 +211,11 @@ macDataRequestInt(u16 addr, u8 len, u8 * data, u8 type)
     }
 #endif
     // Frame type is data
-    if (macConfig.sleeping && NODETYPE == ENDDEVICE && RUMSLEEP)
-        // Set high bit of type if we're sleeping
-        type |= 0x80;
-
     data_frame->type = type;
 
+    // Set high bit of type if we're sleeping
+    if (macConfig.sleeping && NODE_TYPE == ENDDEVICE && NODE_SLEEP)
+       	data_frame->type |= 0x80;  // Indicate that this ENDdevice is sleeping
 
     // Copy the payload data to frame. (note: this creates smaller code than using memcpy!!)
     u8 i;
@@ -232,12 +230,10 @@ macDataRequestInt(u16 addr, u8 len, u8 * data, u8 type)
 
     // send data to radio, after some time delay
     *mac_buffer_tx = len + ftDataHeaderSize; // save length away
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
         // See if the child is sleeping (only the coord sends directly to a child node)
-        if (RUMSLEEP &&
-            macIsChild(addr) &&
-            macIsChildSleeping(addr) && VLP)
+        if (NODE_SLEEP && macIsChild(addr) && macIsChildSleeping(addr) )
             // Send it later, after child is awake
             macHoldFrame(addr, (u8*)data_frame, (u8)*mac_buffer_tx);
         else
@@ -282,7 +278,7 @@ macDataRequest(u16 addr, u8 len, u8 * data)
 void
 macWakeRequest(u16 addr, u16 child)
 {
-    if (NODETYPE == ROUTER || NODETYPE== COORD)
+    if (NODE_TYPE == ROUTER || NODE_TYPE== COORD)
     {
         macDataRequestInt(addr, 2, (u8*)&child, WAKE_NODE);
     }
@@ -295,32 +291,13 @@ macWakeRequest(u16 addr, u16 child)
 void
 macOtaDebugRequest(u8 *str)
 {
-#if (NODETYPE != COORD)
+#if (NODE_TYPE != COORD)
     {
         macDataRequestInt(DEFAULT_COORD_ADDR, strlen((char *)str)+1, str, DEBUG_FRAME);
     }
 #endif
 }
 
-/**
-      The macsixlowpanDataRequest function is used to send a
-    frame over the air to another node.  Note that the IPV6LOWPAN flag
-    must be set to use any 6LoWPAN functionality.
-
-    param:  addr Short address of the destination node.
-
-    param:  len The length of the packet in bytes.
-
-    param:  data Pointer to the data to be sent.
-
-    @ingroup avr6lowpan
-*/
-void
-macsixlowpanDataRequest(u16 addr, u8 len, u8 * data)
-{
-    if (IPV6LOWPAN == 1)
-        macDataRequestInt(addr, len, data, DATA_FRAME_6LOWPAN);
-}
 
 /**
    This function is called when the MAC receives a packet that is
@@ -345,7 +322,7 @@ macDataIndication(u16 dest)
 
 		case DEBUG_FRAME:
 			// Frame containing debug message, print it on coord
-			if (NODETYPE == COORD && OTA_DEBUG && DEBUG)
+			if (NODE_TYPE == COORD && OTA_DEBUG && DEBUG)
 			{
 				debugMsgStr("\r\nNode ");
 				debugMsgInt(frame->originAddr);
@@ -365,7 +342,7 @@ macDataIndication(u16 dest)
 
 		case WAKE_NODE:
 			// Wake up the end node.
-			if (NODETYPE == ROUTER)
+#if (NODE_TYPE == ROUTER)
 			{
 				u8 addr = ((ftWake*)frame)->addr;
 				// See if this is from parent or child
@@ -373,17 +350,18 @@ macDataIndication(u16 dest)
 					// Set the flag to wake up the end node when it sends a packet
 					macWakeChildNode(addr);
 			}
-			if (NODETYPE == ENDDEVICE) /* also include BC_ENDDEVICE ?*/
+#endif
+
+#if (NODE_TYPE == ENDDEVICE) /* also include BC_ENDDEVICE ?*/
 			{
 				// Wake yourself up now
 				macConfig.sleeping = false;
 				// Send parent a confirmation that we are awake
-				macDataRequestInt(macConfig.parentShortAddress,
-								  2,
-								  (u8*)&macConfig.shortAddress,
-								  WAKE_NODE);
+				macDataRequestInt(macConfig.parentShortAddress,2,
+								  (u8*)&macConfig.shortAddress,WAKE_NODE);
 				debugMsgStr("\r\nAwake");
 			}
+#endif
 			break;
 
 		case PING_REQ_FRAME:
@@ -396,25 +374,19 @@ macDataIndication(u16 dest)
 			appPingRsp((ftPing *) (mac_buffer_rx+1));
 			break;
 
+#if (NODE_TYPE == ROUTER)
 		case DROP_CHILD_FRAME:
 			// Coordinator is telling us to drop a child
-			if (NODETYPE == ROUTER)
-				macRemoveChild(*(u16*)(&frame->payload));
+			macRemoveChild(*(u16*)(&frame->payload));
 			break;
-
-		case DATA_FRAME_6LOWPAN:
-			//6lowpan data indication
-			if (IPV6LOWPAN == 1)
-				sixlowpan_DataIndication(frame, pl_len);
-			break;
-
+#endif
 		default:
 			break;
     }
 }
 
 // Target function to timer, sends ping packet after a delay
-// note that argumets are via static vars due to the indirect nature of the call
+// note that arguments are via static vars due to the indirect nature of the call
 static void
 macDoPingRequest(void)
 {
@@ -426,39 +398,60 @@ macDoPingRequest(void)
     frame.srcAddr = macConfig.shortAddress;
     frame.originAddr = macConfig.shortAddress;
     frame.finalDestAddr = pingAddr;
-    frame.type = pingType;
     frame.rssi = radioGetSavedRssiValue();
     frame.lqi = radioGetSavedLqiValue();
+    frame.type = pingType;
 
+    // Set high bit of type if we're sleeping
+    if (macConfig.sleeping && NODE_TYPE == ENDDEVICE && NODE_SLEEP)
+       	frame.type |= 0x80;
 
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
-        // Find the top parent
+#if DEBUG==2
+ debugMsgStr("\r\nin macDoPingRequest");
+#endif
+    	// Find the top parentpin
         u8 addr = macGetTopParent(pingAddr);
         frame.destAddr = addr;
         // See if the child is sleeping (only the coord sends directly to a child node)
-        if (RUMSLEEP &&
-            macIsChild(addr) &&
+        if (NODE_SLEEP &&
+            macIsChild(addr)&&
             macIsChildSleeping(addr))
         {
             // Send it later, after child is awake
+#if DEBUG==2
+debugMsgStr("\r\ncalling macHoldFrame for ping response");
+#endif
             macHoldFrame(addr, (u8*)&frame, sizeof(ftPing));
             // Don't send frame right now
             return;
         }
+        else
+        {
+#if DEBUG==2
+debugMsgStr("\r\n child: ");
+debugMsgInt(addr);
+debugMsgStr(" not sleeping");
+#endif
+        }
+
     }
 #else
         // End/router nodes
         frame.destAddr = macConfig.parentShortAddress;
 #endif
+#if DEBUG==2
+debugMsgStr(" sending Ping Response now\n\r");
+#endif
+
     radioSendData(sizeof(ftPing), (u8*)&frame);
 }
 
 /**
    Send a ping packet (either request or response) to another node.
 
-   param:  pingTypeArg Which type of ping to send, either  
-   PING_REQ_FRAME or   PING_RSP_FRAME.
+   param:  pingTypeArg Which type of ping to send, either  PING_REQ_FRAME or   PING_RSP_FRAME.
 
    param:  addr Short address of node to send ping
 */
@@ -472,20 +465,30 @@ macPing(u8 pingTypeArg, u16 addr)
     if (!macConfig.associated)
         // Broadcast addr
         return;
-    debugMsgStr("\r\nmacPingRequest->");
+
     pingAddr = addr;
     pingType = pingTypeArg;
 
-#   if (NODETYPE == COORD)
+debugMsgStr("\r\nmacPing to: ");
+debugMsgInt(pingAddr);
+debugMsgStr(" type: ");
+debugMsgInt(pingType); // 2 == request 3== response
+debugMsgStr("\r\n");
+
+#   if (NODE_TYPE == COORD)
     {
-        // First send a routing packet
+
         u8 rpSent;
-        rpSent = macSendRoutingPacket(addr);
-        macSetAlarm(rpSent ? MAC_RP_DELAY : 0, macDoPingRequest);
+        rpSent = macSendRoutingPacket(addr); 						// First send a routing packet
+#if DEBUG==2
+debugMsgStr("\r\nsetting up Alarm for ping response");
+#endif
+        macSetAlarm(rpSent ? MAC_RP_DELAY : 0, macDoPingRequest);	// Then send the Ping (response)
         macConfig.busy = true;
     }
 #   else
     {
+
         // End/router nodes
     	macDoPingRequest();
         macConfig.busy = true;
@@ -507,7 +510,7 @@ macPing(u8 pingTypeArg, u16 addr)
 void
 macHoldFrame(u16 addr, u8 *buf, u8 len)
 {
-#   if ((NODETYPE == ROUTER || NODETYPE == COORD) && RUMSLEEP && VLP)
+#   if ((NODE_TYPE == ROUTER || NODE_TYPE == COORD) && NODE_SLEEP )
     {
         u8 i,done=0;
 
@@ -517,8 +520,10 @@ macHoldFrame(u16 addr, u8 *buf, u8 len)
             {
                 if (!done)  // Only store once
                 {
-                    debugMsgStr("\r\nHolding frame");
-                    // This one's free, use it
+#if DEBUG
+debugMsgStr("\r\nHolding frame for sleeping child");
+#endif
+					// This one's free, use it
                     storedFrames[i].len = len;
                     storedFrames[i].addr = addr;
                     memcpy(storedFrames[i].buf, buf, len);
@@ -546,7 +551,7 @@ macHoldFrame(u16 addr, u8 *buf, u8 len)
 */
 void macSendStoredFrame(u16 addr)
 {
-#   if ((NODETYPE == ROUTER || NODETYPE == COORD) && RUMSLEEP && VLP)
+#   if ((NODE_TYPE == ROUTER || NODE_TYPE == COORD) && NODE_SLEEP )
     {
         u8 i;
 
@@ -556,6 +561,9 @@ void macSendStoredFrame(u16 addr)
             if (storedFrames[i].len &&
                 storedFrames[i].addr == addr)
             {
+#if DEBUG
+debugMsgStr("\r\nMac sending postponed frame \r\n");
+#endif
                 // Send this frame, remove checksum
                 radioSendData(storedFrames[i].len, storedFrames[i].buf);
                 // Clear out this frame

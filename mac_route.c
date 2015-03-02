@@ -48,7 +48,7 @@
 void
 macForwardRoutingPacket(void)
 {
-#if (NODETYPE == ROUTER)
+#if (NODE_TYPE == ROUTER)
     {
         u8 payloadLength = ((rx_frame_t*)mac_buffer_rx)->length - sizeof(ftRouting);
         ftRouting *frame = (ftRouting*)(mac_buffer_tx+1);
@@ -99,7 +99,7 @@ macRouteAssociateResponse(void)
     // The incoming packet is not for this node, therefore
     // the incoming packet is an indirect packet.
 
-#if (NODETYPE == ROUTER)
+#if (NODE_TYPE == ROUTER)
     {
         // find out if we are sending to the endnode.
         ftAssocRespIndirect* inputFrame = (ftAssocRespIndirect*) (mac_buffer_rx+1);
@@ -158,7 +158,7 @@ macRouteAssociateRequest(void)
     // This router node has received an association request packet.  We must
     // Send this packet along, and if the packet came from a MAC address, then
     // we must translate from a direct packet to an indirect packet.
-#if (NODETYPE == ROUTER)
+#if (NODE_TYPE == ROUTER)
     {
         if (mac_buffer_rx[2] == (FCF_ASSOC_REQ_DIRECT >> 8)) // Direct from MAC addr?
         {
@@ -205,7 +205,7 @@ void
 mrd(void)
 {
     // Send packet after routing packet was sent
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
         // Packet has already been created, just send it.
         ftData *frame = (ftData *)(mac_buffer_tx+1);
@@ -231,14 +231,14 @@ mrd(void)
 void
 macRouteData(void)
 {
-#if (NODETYPE == ROUTER || NODETYPE == COORD)
+#if (NODE_TYPE == ROUTER || NODE_TYPE == COORD)
     {
         ftData *frame = (ftData *)(mac_buffer_tx+1);
 
         // Copy RX to TX buffer
         macCopyRxToTx();
 
-        blink_red(20);
+        blink_led0(20);
 
         // See if this frame is in the child table
         if (macIsChild(frame->finalDestAddr))
@@ -250,7 +250,7 @@ macRouteData(void)
             debugMsgStr("\r\nRoute data to child");
 
             // See if the child is sleeping
-            if (RUMSLEEP && macIsChildSleeping(frame->finalDestAddr))
+            if (NODE_SLEEP && macIsChildSleeping(frame->finalDestAddr))
                 // Send it later, after child is awake
                 macHoldFrame(frame->finalDestAddr, (u8*)frame, (u8)*mac_buffer_tx - 2);
             else if (frame->destAddr != BROADCASTADDR)
@@ -259,7 +259,7 @@ macRouteData(void)
         }
         else // Not child node, send up or down the chain
         {
-            if (NODETYPE == COORD)
+            if (NODE_TYPE == COORD)
             {
                 // Send down the chain
                 frame->seq = macConfig.dsn++;
@@ -276,7 +276,7 @@ macRouteData(void)
                     return;
                 }
             }
-            else if (NODETYPE == ROUTER)
+            else if (NODE_TYPE == ROUTER)
             {
                 // See if we should route up or down
                 if (frame->srcAddr == macConfig.parentShortAddress)
@@ -319,7 +319,7 @@ macRouteData(void)
 u8
 macSendRoutingPacket(u16 shortAddr)
 {
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
         volatile u16 topParent; // Return to caller
 

@@ -1,0 +1,42 @@
+How to initialize the PAN coordinator and nodes for a new network
+
+The network is based on a unique PAN-ID number. The controller  broadcats this number and nodes
+can only communicate with the network when they have the same PAN id as the controller. 
+
+An un-commisiond controller first creates a PAN id at random, then uses that same number until
+recommisioned as a different network. A uncommisioned node initially queries all network frequencies 
+for a controller broadcast and binds to the strongest signal. The Node then uses that controllers 
+broadcast PAN id until it gets recommisioned. 
+
+Jumpers on Controller:
+
+A jumper during the bootprocess between EXT2 P10 & 9 , commisions the controller for a new network by erasing its former 
+PAN ID. A new PAN ID is then calculated at random during the boot and saved into the EEprom. Once comissioned
+the controller keeps this PAN id unless the EEprom is completely erased or it is recommisioned as an other
+network controller.
+
+
+A jumper during operation of the controller between Ext2 Pin 10 and Pin 8 changes the UART behavior. Without
+a jumper the Controller is only reporting Sensor readings through the UART in short form. 
+With a jumper the controller presents a configuration menu to an attached terminal and some aspects 
+such as sensor measurment rate and sleep state can be configured.  
+
+The UART connection parameters are 38Kbd,8n1. Pressing the space bar shows the menu of commands.
+
+
+
+Jumpers on routers and end nodes:
+
+A jumper during the bootprocess between ECT2 P10 & 9 binds the Node to the nearest network. The PAN-ID 
+is written to ee-prom and is used from that point on until the node gets recommisioned. 
+
+The MAC address of a node is randomly created on first boot on a device with completely erased EEprom,
+when the mac adress is reading all 0xff's. 
+
+The lower 12 bits of the MAC address are used for the Node ID field when a sensor is reporting a reading. 
+
+The MAC adress and therefore the sensors ID stays permanently with the device unless the chip is 
+completely erases with a programmer.
+
+
+

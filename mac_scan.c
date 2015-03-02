@@ -38,6 +38,7 @@
 #include "mac_scan.h"
 #include "system.h"
 #include "sleep.h"
+#include "EE_prom.h"
 
 #define ALL_CHANNELS (0x80)
 /// Duration of scanning for each channel, in mSec
@@ -50,7 +51,7 @@
    scanned channel.  This is only used during the coordinator's energy scan.
    @see macFindClearChannel().
 */
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
 typedef struct{
     u8 currentChannel;    ///< Channel that we're currently scanning
     u8 timerID;           ///< ID of channel scan timer, return value of   macSetAlarm
@@ -129,28 +130,28 @@ static u8 scanChannel=ALL_CHANNELS;
 static void
 sendBeaconRequest(void)
 {
-    // Create a struct pointer to the global variable...
-    ftBeaconReq* brFrame = (ftBeaconReq*)(mac_buffer_tx+1);
+    // Create a structure pointer to the global variable...
+    volatile ftBeaconReq* brFrame = (ftBeaconReq*)(mac_buffer_tx+1);
 #if DEBUG==2
-    debugMsgStr("\r\nmacBeacon Request->");
+    debugMsgStr("\r\nMACBeacon Request->");
 #endif
     // Fill in beacon request frame
     brFrame->fcf = FCF_BEACONREQ;
     brFrame->seq = macConfig.bsn++;
-    brFrame->panid = PAN_ID;
+    brFrame->panid = EE_GetPanID(); 	// This is 0xffff during  bind -- or the PAN_ID the bind discovered
     brFrame->broadcastAddr = BROADCASTADDR;
     brFrame->cmd = BEACON_REQUEST;
 
     // Send the frame via radio
     radioSendData(sizeof(ftBeaconReq), (u8*)brFrame);
 }
-
+# if(NODE_TYPE != COORD)
 /**
-      This will store the actual beacon data into the pan
+    This will store the actual beacon data into the pan
     descriptor list after the appropriate pan conditions have been
     met.  See   mac_logPanDescriptors().
 */
-# if(NODETYPE != COORD)
+
 static void
 store_pandescriptors(void)
 {
@@ -192,7 +193,7 @@ store_pandescriptors(void)
 void
 mac_logPanDescriptors(void)
 {
-#if (NODETYPE != COORD)
+#if (NODE_TYPE != COORD)
     ftBeacon *frame = (ftBeacon *)(mac_buffer_rx+1);
     u8 lqi = ((rx_frame_t *)mac_buffer_rx)->lqi;
     u8 this_RSSI;
@@ -201,7 +202,7 @@ mac_logPanDescriptors(void)
     if (!scanInProcess)
         return;
 
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
 
         // Energy scan, mark that this channel has a lot of interference
@@ -305,7 +306,7 @@ macGetScanChannel(void)
 
    When the entire scan is complete, the mac_scanConfirm() function is called.
 */
-# if(NODETYPE != COORD)
+# if(NODE_TYPE != COORD)
 /**
    Example function, starts the network by scanning channels for a coordinator.
 
@@ -317,9 +318,9 @@ void macStartScan(void)
 {
 	debugMsgStr("\r\nStart Network scan as a ");
 
-	if	(NODETYPE == ROUTER)
+	if	(NODE_TYPE == ROUTER)
 		debugMsgStr("Router");
-	else if (NODETYPE == ENDDEVICE)
+	else if (NODE_TYPE == ENDDEVICE)
 		debugMsgStr("EndDevice");
 	else
 		debugMsgStr("Broadcast EndDevice");
@@ -360,10 +361,7 @@ macScan(void)
             debugMsgInt(PAN_CHANNEL);
         }
     }
-    else
-        // Not first time through, must sleep very low power nodes.
-        if (VLP && (NODETYPE == ENDDEVICE))
-            nodeSleep(SCAN_SLEEP_TIME);
+
 
     // See if we're done scanning
     if(macConfig.currentChannel > (CHINA_MODE ? 4 : MAX_CHANNEL) || macConfig.currentChannel == scanChannel + 1)
@@ -387,7 +385,7 @@ macScan(void)
 
     // Set the scan duration timer.
     macSetAlarm(SCANDURATION, macScan);
-    blink_red(10);
+    blink_led0(10);
 }
 
 /**
@@ -404,6 +402,12 @@ mac_scanConfirm(void)
     if (gotbeacon)
     {
         // Save the panDescriptor data to the PIB's.
+
+    	// If we have not stored the PAN ID yet save it to EEPROM,
+    	// I.e. this scan was done because we where doing a bind
+    	if (EE_GetPanID() == 0xffff)
+    		EE_SetPanID( panDescriptor.coorPANId);
+
         macConfig.panId = panDescriptor.coorPANId;
         macConfig.parentShortAddress = panDescriptor.coordAddr;
 
@@ -420,7 +424,7 @@ mac_scanConfirm(void)
 		debugMsgStr(" and  PANID = 0x");
 		debugMsgHex(panDescriptor.coorPANId);
 
-		if (NODETYPE != BC_ENDDEVICE ) 	// associate with coordinator/router to get a unique address,  unless we are a Broadcast only device
+		if (NODE_TYPE != BC_ENDDEVICE ) 	// associate with coordinator/router to get a unique address,  unless we are a Broadcast only device
 		{
 			macAssociate(panDescriptor.coordAddr, panDescriptor.logicalChannel);
 
@@ -440,21 +444,23 @@ mac_scanConfirm(void)
     else
     {
         // failure to find a network
-		 if (VLP)
+		 if (NODE_SLEEP)
 		 {
-			 // Try again after sleeping for 10 seconds
-			 nodeSleep(100);
+			 // Try again after sleeping for 30 seconds so we don't drain the battery too fast if the COORD is not up
+			 nodeSleep(300);
 			 macStartScan ();
 		 }
 		 else
-		 macSetAlarm(1000,macStartScan);
+			 macSetAlarm(1000,macStartScan); // wait one second and start scan again
+
+
 		 debugMsgStr("\r\nScan bad");
      }
 
 }
 #endif
 
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
 /**
    Callback function, called from timer set in macFindClearChannel().
    This function tallies the results from an energy scan on one
@@ -543,7 +549,7 @@ energyScanCallback(void)
 void
 macEdCallback(void)
 {
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
         // We have received an energy detect IRQ (ED_READY)
 
@@ -571,7 +577,7 @@ macEdCallback(void)
 void
 macFindClearChannel(void)
 {
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
 	{
         if (PAN_CHANNEL != CHANNEL255)
             // In this mode, don't scan

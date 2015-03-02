@@ -1,59 +1,26 @@
-/* Copyright (c) 2008  ATMEL Corporation
-   All rights reserved.
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions are met:
-
-   * Redistributions of source code must retain the above copyright
-     notice, this list of conditions and the following disclaimer.
-   * Redistributions in binary form must reproduce the above copyright
-     notice, this list of conditions and the following disclaimer in
-     the documentation and/or other materials provided with the
-     distribution.
-   * Neither the name of the copyright holders nor the names of
-     contributors may be used to endorse or promote products derived
-     from this software without specific prior written permission.
-
-  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-  POSSIBILITY OF SUCH DAMAGE.
-*/
-/*
-  $Id: main.c,v 1.1 2009/05/20 20:52:01 mvidales Exp $
-*/
-
 #include <stdlib.h> 
 #include <string.h>
 #include <stdio.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <avr/wdt.h>
-#include <compat/twi.h>
-
 
 #include "stdbool.h"
+
 #include "radio.h"
 #include "mac.h"
 #include "mac_event.h"
+#include "mac_scan.h"
 #include "timer.h"
-#include "serial.h"
-#include "sensors.h"
 #include "mac_start.h"
 #include "mac_data.h"
 #include "mac_associate.h"
 #include "system.h"
 #include "hal_avr.h"
 #include "EE_prom.h"
-#include "avr_sixlowpan.h"
-#include "i2c.h"
+#include "Sensors/measure.h"
+
+
 
 /* On restart WDT will be enabled with shortest timeout if previously
    enabled. Must turn it off before anything else, attempting to
@@ -78,25 +45,27 @@ Reset_via_Watchdog( void)
     for(;;);
 }
 #endif
+
+
 void 
 Device_init()
 {
-
     halSetupClock();
 
 	LED_INIT(); 
 	
 	// Init the button
     BUTTON_SETUP();
-	
+
 	// Init the timer system for the MAC
     timerInit();
 
 // init serial
-    if (SERIAL)
+#    if (SERIAL)
         serial_init(NULL);
+#endif
 
-	sei();		// enable global interupts 
+	sei();		// enable global interrupts
 
 	// Init radio -- calls radio_hal_init()
     if ( radioInit() != RADIO_SUCCESS)
@@ -107,68 +76,62 @@ Device_init()
 		   while (1);
 	}
 
-    if (APP==SENSOR)
-    {
-        i2c_init(200000UL);		// 200Khz clock
+   	// All sensor measurement init stuff
+   	Do_SensorInit();
 
-    	if (SENSOR_TYPE==SENSOR_TMP100 )
-    		TMP100_init(TMP100_12_BitCONF);
-
-    	if ( SENSOR_TYPE==SENSOR_HP03 )
-    		HP03_init();
-
-    	if ( SENSOR_TYPE==SENSOR_BMP085 )
-    	    		BMP085_init();
-
-     	if ( SENSOR_TYPE==SENSOR_SHT11 ) // Make PD4 an output
-     	{
-     		DDRD  |=  0x10;
-     	}
-
-
-      	Sensor_HW_Init();		// analog sensors
-    }
-
-
-
-    blink_red(200); // Blip the LED once on powerup
-
-	
+    blink_led0(200); // Blip the LED once on power-up
 }
-
 
 
 /**
      Main function of the program.
 */
+volatile double f = 0.1223;
 int main(void)
 {
+
    	Device_init();
 
-	// If the EEPROM is cleared, init it to something useful
-	checkEeprom();
+	// If the EEPROM is cleared, initialize it to something useful
+	checkEEprom();
 
 	// Init the mac and stuff
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
 	{
 		debugMsgStr("\r\nStartup: as Coordinator");
-		macFindClearChannel();
-	// appClearChanFound() will be called
+		DDRD &= ~(1 << PD5); PORTD |= (1 << PD5);  // Make PD5 a pulled up input to switch between human and machine interface on UART port
+
+		if (BUTTON_PRESSED() )		// This creates a new PAN_ID all Children have to bind again
+		{
+			Led1_on();
+			EE_SetPanID(0xffff);
+			while (BUTTON_PRESSED())
+				;
+			Led1_off();
+		}
+
+		macFindClearChannel();	// appClearChanFound() will be called which calls  macStartCoord(void);
 	}
 #else
+	if (BUTTON_PRESSED() )
+	{
+		Led1_on();
+		EE_SetPanID(0xffff);
+		EE_SetFrameInterval(50);		// initialize sending of readings every 5 Seconds
+		while (BUTTON_PRESSED())
+			;
+		Led1_off();
+	}
+
 	// End or Router node, start scanning for a coordinator
 	macStartScan();
 
 
-#	if (IPV6LOWPAN == 1)
-		sixlowpan_init();
-		sixlowpan_application_init();
-#	endif
 #endif
 
-#if( NODETYPE == BC_ENDDEVICE )
+#if( NODE_TYPE == BC_ENDDEVICE )
 		// A BC only node has no way of knowing if the network is still alive and on the same channel unless it periodically
-		// does a re-sacn of all channels or the channel & PANDID is fixed
+		// does a re-scan of all channels or the channel & PANDID is fixed
 	  StartSensorBC_interval();
 #endif
 
@@ -179,9 +142,8 @@ int main(void)
         // at this point in the loop, so just turn them on every time, in
         // case interrupts were inadvertently turned off elsewhere.
         sei();
-        // Task functions called from main loop.  Either add your own task loop
-        // or edit the example appTask().
-        appTask();   // This currently only does the debug interface via RS232
+
+        appMenu();   // This currently only does the debug interface via RS232
         macTask();
 
     }

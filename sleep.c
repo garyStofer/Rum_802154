@@ -39,7 +39,7 @@
 #include <avr/wdt.h>
 
 
-#if ((NODETYPE == ENDDEVICE) && (RUMSLEEP == 1) )
+#if ((NODE_TYPE == ENDDEVICE) && (NODE_SLEEP == 1) )
 
 /**
    @defgroup sleep Sleep functions
@@ -65,12 +65,10 @@
 
    @ingroup sleep
 */
+
+
 void nodeSleep(u16 tenthSeconds)
 {
-    // Check to see if we really should sleep
-    if (!macConfig.sleeping)
-        // Just return, rather than sleeping
-        return;
 
     // ************** Power down the other board peripherals
     Leds_off();
@@ -98,7 +96,7 @@ void nodeSleep(u16 tenthSeconds)
 
 // Turn off BOD
 
-// This should only be done once -- No need to do it over agin 
+// This should only be done once -- No need to do it over again
 /*
         AVR_ENTER_CRITICAL_REGION();
 #define BODS  6
@@ -123,6 +121,18 @@ void nodeSleep(u16 tenthSeconds)
     // Sleep as many times as needed to sleep for the full time
     while (tenthSeconds)
     {
+		// This is to get the node manually out of sleeping mode --
+    	// Might take up to 7.5Sec to detect button press
+    	//
+    	if (BUTTON_PRESSED() )
+    	{
+    		Led1_on();
+    		macConfig.sleeping = false;
+    		while (BUTTON_PRESSED())
+    			;
+    		Led1_off();
+    		break;		//  exit the Sleeping loop
+    	}
 		// Set TIMER2 output compare register from user.
 		if (tenthSeconds > 75)
 		{
@@ -160,7 +170,7 @@ void nodeSleep(u16 tenthSeconds)
         set_sleep_mode( SLEEP_MODE_PWR_SAVE);
         sleep_enable();
         sei();
-        sleep_cpu();
+        sleep_cpu();   // sleeping right here
         sleep_disable();
         AVR_LEAVE_CRITICAL_REGION();
 

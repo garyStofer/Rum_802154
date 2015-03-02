@@ -50,7 +50,7 @@ typedef struct {
 } __attribute__((packed)) tChildTableItem;
 
 // Global variables.
-#if (NODETYPE != COORD)
+#if (NODE_TYPE != COORD)
 static u8 associationTimer;
 #else
 static u16 dropParent, dropChild;
@@ -83,14 +83,14 @@ void macNotifyDrop(u16 parent, u16 child);
 */
 
 ///   Table of associated nodes, only instantiated for coordinator.
-static associatedNodes_t nodes[MAXNODES * (NODETYPE == COORD)];
+static associatedNodes_t nodes[MAXNODES * (NODE_TYPE == COORD)];
 
 
 
-#if (NODETYPE ==ROUTER)
+#if (NODE_TYPE ==ROUTER)
 static u16 childNodeNdx;     // Used for macFirstChild() and macNextChild()
 /** Table of children nodes, only instantiated for router nodes. */
-static tChildTableItem childNodes[MAXCHILDREN * (NODETYPE == ROUTER)];
+static tChildTableItem childNodes[MAXCHILDREN * (NODE_TYPE == ROUTER)];
 #endif
 
 
@@ -108,7 +108,7 @@ static tChildTableItem childNodes[MAXCHILDREN * (NODETYPE == ROUTER)];
 */
 void macAssociate(u16 shortAddr, u8 channel)
 {
-#   if (NODETYPE != COORD)
+#   if (NODE_TYPE != COORD)
     {
         // This node sends a direct association packet to its new parent
         // The first association request is always a direct request
@@ -130,13 +130,13 @@ void macAssociate(u16 shortAddr, u8 channel)
         memcpy(&(direct_assoc_frame->srcAddr), &(macConfig.longAddr), sizeof macConfig.longAddr);
         direct_assoc_frame->cmd = ASSOCIATION_REQUEST;
         direct_assoc_frame->parentAddr = shortAddr;
-        direct_assoc_frame->type = NODETYPE;
+        direct_assoc_frame->type = NODE_TYPE;
 
         // send data to radio.
         radioSendData(sizeof(ftAssocReqDirect), (u8 *)direct_assoc_frame);
 
         // Set a time out timer for an "association period" of 100 ms. This gets executed if there is no Association response in "Timeout"
-        associationTimer = macSetAlarm(VLP ? 100 : ASSOCIATION_TIMEOUT, macAssociationConfirm);
+        associationTimer = macSetAlarm(ASSOCIATION_TIMEOUT, macAssociationConfirm);
     }
 #   endif
 }
@@ -148,7 +148,7 @@ void macAssociate(u16 shortAddr, u8 channel)
 */
 void macAssociationConfirm(void)
 {
-#   if (NODETYPE != COORD) // Coords cannot associate
+#   if (NODE_TYPE != COORD) // Coords cannot associate
     {
         // We have finished the association process, kill the association timeout timer...
         macTimerKill(associationTimer);
@@ -177,7 +177,7 @@ void macAssociationConfirm(void)
 }
 
 // This function is only a timer callback, from a timer set in macAssociationResponse()
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
 static void sendAsResInd(void)
 {
 
@@ -202,7 +202,7 @@ macAssociationResponse(void)
     // The coordinator must send either a direct or indirect response, depending
     // on which type of request it gets.
 
-#    if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
     {
         u16 shortAddress = DEFAULT_COORD_ADDR;
         u16 childAddr;
@@ -300,14 +300,19 @@ macAssociationResponse(void)
 
             // send data to radio.
             radioSendData(sizeof(ftAssocRespDirect), (u8 *)response);
-
         }
 
-        debugMsgStr("\r\nAssociated node ");
-        debugMsgInt(shortAddress);
-        debugMsgStr(" Hops = ");
-        debugMsgInt(macGetHopCount(shortAddress));
-        debugMsgStr("\r\n");
+        debugMsgStr("\r\nMac Associated node: ");
+		debugMsgInt(shortAddress);
+		debugMsgStr(" Hops = ");
+		if (macGetHopCount(shortAddress) ==1)
+			debugMsgStr("direct");
+		else
+		{
+			debugMsgInt(macGetHopCount(shortAddress) -1);
+		}
+		debugMsgStr("\r\n");
+
 
         // Let app know that a node was associated
         appNodeAssociated(shortAddress);
@@ -319,7 +324,7 @@ macAssociationResponse(void)
    Add a node to the table of nodes, and return a short address for
    the new node.  This code only runs on the coordinator.
 
-   param:  type The node type, see   NODETYPE.
+   param:  type The node type, see   NODE_TYPE.
 
    param:  macAddr The long 8-byte MAC address of the new node.
 
@@ -331,7 +336,7 @@ u16
 addNode(u8 type, u64 *macAddr, u16 parentAddr)
 {
     // Find the node in the table, return it or find new one
-#   if (NODETYPE == COORD)
+#   if (NODE_TYPE == COORD)
     {
         u16 i=0xffff;
 
@@ -385,7 +390,7 @@ addNode(u8 type, u64 *macAddr, u16 parentAddr)
 */
 u8 macCreateRoute(u16 shortAddr, ftRouting *frame)
 {
-#    if (NODETYPE == COORD)
+#    if (NODE_TYPE == COORD)
     {
         u16 node=shortAddr;
 
@@ -459,7 +464,7 @@ u8 macCreateRoute(u16 shortAddr, ftRouting *frame)
 u16
 macGetNodeAddr(u64 *macAddr)
 {
-#   if (NODETYPE == COORD)
+#   if (NODE_TYPE == COORD)
     {
         u16 i;
 
@@ -487,7 +492,7 @@ macIsChild(u16 shortAddr)
 {
     //returns true if the node with shortAddr is a child of this node
 
-#    if (NODETYPE == COORD)
+#    if (NODE_TYPE == COORD)
     {
         // Check to see if the node was previously stored in the table.
         if (shortAddr >= MAXNODES)
@@ -496,7 +501,7 @@ macIsChild(u16 shortAddr)
            nodes[shortAddr].parentShortAddress == DEFAULT_COORD_ADDR)
                 return true;
     }
-#elif (NODETYPE == ROUTER)
+#elif (NODE_TYPE == ROUTER)
     {
         // This is a router node, just search child table
         u8 i;
@@ -530,7 +535,7 @@ macIsChildSleeping(u16 shortAddr)
 {
     //returns true if the node with shortAddr is a child of this node
 
-#   if (NODETYPE == COORD && RUMSLEEP)
+#   if (NODE_TYPE == COORD && NODE_SLEEP)
     {
         // Check to see if the node was previously stored in the table.
         if (shortAddr >= MAXNODES)
@@ -538,7 +543,7 @@ macIsChildSleeping(u16 shortAddr)
         if(nodes[shortAddr].sleeping)
                 return true;
     }
-#elif (NODETYPE == ROUTER && RUMSLEEP)
+#elif (NODE_TYPE == ROUTER && NODE_SLEEP)
     {
         // This is a router node, just search child table
         u8 i;
@@ -568,7 +573,7 @@ macIsChildSleeping(u16 shortAddr)
 */
 void macAddChild(u16 shortAddr)
 {
-#if (NODETYPE == ROUTER)
+#if (NODE_TYPE == ROUTER)
     {
         u8 i;
 
@@ -615,7 +620,7 @@ void macAddChild(u16 shortAddr)
 */
 void macRemoveChild(u16 shortAddr)
 {
-#    if (NODETYPE == COORD)
+#    if (NODE_TYPE == COORD)
     {
         // remove from coord table, clear data
         if (shortAddr >= MAXNODES)
@@ -625,7 +630,7 @@ void macRemoveChild(u16 shortAddr)
         nodes[shortAddr].lastRoutedAddress =0;
     }
 #endif
-#   if (NODETYPE == ROUTER)
+#   if (NODE_TYPE == ROUTER)
     {
         u8 i;
 
@@ -653,7 +658,7 @@ void macRemoveChild(u16 shortAddr)
 u16 macGetParent(u16 shortAddr)
 {
     // Coord only, return short address of the node's parent
-#   if (NODETYPE == COORD)
+#   if (NODE_TYPE == COORD)
     {
         if (shortAddr >= MAXNODES)
             return 0;
@@ -674,7 +679,7 @@ u16 macGetParent(u16 shortAddr)
 */
 u16 macGetTopParent(u16 addr)
 {
-#   if (NODETYPE == COORD)
+#   if (NODE_TYPE == COORD)
     {
         if (addr >= MAXNODES)
             return 0;
@@ -708,7 +713,7 @@ u16 findFirstChild(u16 addr)
 {
     // Return first child of node addr, or 0x0 if none found
 
-#   if (NODETYPE == COORD)
+#   if (NODE_TYPE == COORD)
     {
         u16 i;
         for (i=1;i<MAXNODES;i++)
@@ -741,7 +746,7 @@ u16 findFirstChild(u16 addr)
 u16
 findNextSibling(u16 addr)
 {
-#   if (NODETYPE == COORD)
+#   if (NODE_TYPE == COORD)
     {
         if (addr >= MAXNODES)
             return 0;
@@ -771,7 +776,7 @@ findNextSibling(u16 addr)
 void macPrintTree(void)
 {
 #if DEBUG
-#       if (NODETYPE == COORD)
+#       if (NODE_TYPE == COORD)
         {
             // debug stuff, print tree of all nodes
             u16 ndx=0;
@@ -861,7 +866,7 @@ void macPrintTree(void)
 
         }
 #		endif
-#       if (NODETYPE == ROUTER)
+#       if (NODE_TYPE == ROUTER)
         {
             // Print child table
 
@@ -883,7 +888,7 @@ void macPrintTree(void)
 #endif
 }
 
-#if (NODETYPE == COORD)
+#if (NODE_TYPE == COORD)
 // These two functions are targets to the timer function, called after a time
 // to send a Drop Notification packet and a routing packet to a router.
 static void mnd1(void)
@@ -919,7 +924,7 @@ static void mnd1(void)
 #endif
 void mnd2(void)
 {
-#    if (NODETYPE == COORD)
+#    if (NODE_TYPE == COORD)
     {
         // Send a routing packet and then the drop packet
         u8 rpSent;  // Routing packet sent?
@@ -943,7 +948,7 @@ void mnd2(void)
 */
 void macNotifyDrop(u16 parent, u16 child)
 {
-#    if (NODETYPE == COORD)
+#    if (NODE_TYPE == COORD)
     {
         // wait a while, then send the routing packet and drop packet.
 
@@ -968,7 +973,7 @@ void macNotifyDrop(u16 parent, u16 child)
 */
 u16 macGetLastRoute(u16 parent)
 {
-    if (NODETYPE == COORD && parent < MAXNODES)
+    if (NODE_TYPE == COORD && parent < MAXNODES)
         return nodes[parent].lastRoutedAddress;
     return 0;
 }
@@ -983,7 +988,7 @@ u16 macGetLastRoute(u16 parent)
 */
 void macSetLastRoute(u16 parent, u16 addr)
 {
-    if (NODETYPE == COORD && parent < MAXNODES)
+    if (NODE_TYPE == COORD && parent < MAXNODES)
         nodes[parent].lastRoutedAddress = addr;
 }
 
@@ -999,12 +1004,12 @@ void macSetLastRoute(u16 parent, u16 addr)
 associatedNodes_t *macGetNode(u16 index)
 {
     // return pointer to node data.
-    if (NODETYPE == COORD && index < MAXNODES)
+    if (NODE_TYPE == COORD && index < MAXNODES)
         return &nodes[index];
     return NULL;
 }
 
-#   if (NODETYPE == COORD)
+#   if (NODE_TYPE == COORD)
 /**
    Initializes the   nodes array of   associatedNodes_t
    structures.  Really, this only initializes the one entry for the
@@ -1039,9 +1044,9 @@ void macInitNodes(void)
 */
 void macWakeChildNode(u16 addr)
 {
-#   if (RUMSLEEP)
+#   if (NODE_SLEEP)
     {
-#        if (NODETYPE == COORD)
+#        if (NODE_TYPE == COORD)
         {
             // Find parent of the node
             u16 parent = macGetParent(addr);
@@ -1058,9 +1063,9 @@ void macWakeChildNode(u16 addr)
             }
         }
 #		endif
-#       if (NODETYPE == ROUTER)
+#       if (NODE_TYPE == ROUTER)
         {
-            // Search childnodes for child
+            // Search child nodes for child
             u8 i;
             for (i=0;i<MAXCHILDREN;i++)
             {
@@ -1087,13 +1092,13 @@ void macWakeChildNode(u16 addr)
 */
 void macClearChildWakeFlag(u16 addr)
 {
-#   if (RUMSLEEP)
+#if (NODE_SLEEP)
     {
         // Is the address my child?
         if (!macIsChild(addr))
             return;
 
-#       if (NODETYPE == ROUTER)
+#       if (NODE_TYPE == ROUTER)
         {
             u8 i;
 
@@ -1108,7 +1113,7 @@ void macClearChildWakeFlag(u16 addr)
             }
         }
 #		endif
-#       if (NODETYPE == COORD)
+#       if (NODE_TYPE == COORD)
         {
             if (addr >= MAXNODES)
                 return;
@@ -1133,7 +1138,7 @@ void macClearChildWakeFlag(u16 addr)
 void
 macChildIsAwake(ftData *frame)
 {
-#   if (RUMSLEEP && ( NODETYPE == ROUTER || NODETYPE == COORD))
+#   if (NODE_SLEEP && ( NODE_TYPE == ROUTER || NODE_TYPE == COORD))
     {
         u16 addr = frame->originAddr;
 
@@ -1141,7 +1146,7 @@ macChildIsAwake(ftData *frame)
         if (!macIsChild(addr))
             return;
 
-        if (NODETYPE == ROUTER)
+#        if (NODE_TYPE == ROUTER)
         {
             u8 i;
 
@@ -1169,12 +1174,13 @@ macChildIsAwake(ftData *frame)
                     }
 
                     // Send a stored frame if there is one.
-                    if (RUMSLEEP)
+                    if (NODE_SLEEP)
                         macSendStoredFrame(addr);
                 }
             }
         }
-        if (NODETYPE == COORD)
+#endif
+#        if (NODE_TYPE == COORD)
         {
             if (addr >= MAXNODES)
                 return;
@@ -1190,9 +1196,10 @@ macChildIsAwake(ftData *frame)
                 nodes[addr].wakeup = 0;
             }
             // Send a stored frame if there is one.
-            if (RUMSLEEP)
+            if (NODE_SLEEP)
                 macSendStoredFrame(addr);
         }
+#endif
     }
 #endif
     // Reset the sleeping bit in the frame.
@@ -1205,7 +1212,7 @@ macChildIsAwake(ftData *frame)
 */
 u16 macFirstChild(void)
 {
-#   if (NODETYPE == ROUTER)
+#   if (NODE_TYPE == ROUTER)
     {
         for (childNodeNdx=0;childNodeNdx<MAXCHILDREN;childNodeNdx++)
             if (childNodes[childNodeNdx].childAddr)
@@ -1222,7 +1229,7 @@ u16 macFirstChild(void)
 */
 u16 macNextChild(void)
 {
-#   if (NODETYPE == ROUTER)
+#   if (NODE_TYPE == ROUTER)
     {
         for (;childNodeNdx<MAXCHILDREN;childNodeNdx++)
             if (childNodes[childNodeNdx].childAddr)
@@ -1259,6 +1266,7 @@ u8 macGetHopCount(u16 node_short)
         // Go for another hop
         hops++;
     }
+    return 0;
 }
 
 

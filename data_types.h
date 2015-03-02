@@ -27,48 +27,22 @@
   POSSIBILITY OF SUCH DAMAGE.
 */
 /*
-  $Id: mac_beacon.c,v 1.1 2009/05/20 20:52:01 mvidales Exp $
+  $Id: rum_types.h,v 1.1 2009/05/20 20:52:01 mvidales Exp $
 */
+#ifndef RUM_TYPES_H
+#define RUM_TYPES_H
 
-#include <stdio.h>
-#include <string.h>
-#include "mac.h"
-#include "mac_beacon.h"
-#include "mac_route.h"
-#include "radio.h"
-#include "timer.h"
+#include <stdint.h>
 
+// Make shorter names for standard types; I hate typing ;-)
 
-/**
-   Create and send a beacon frame.  This is called in response to a
-   beacon request frame.
-*/
-void
-sendBeaconFrame(void)
-{
-#   if (NODE_TYPE == ROUTER || NODE_TYPE== COORD)
-    {
-#if DEBUG==2
-    	debugMsgStr("\r\nTX BF");
-#endif
-    	blink_led1(25);
-        ftBeacon* data_frame = (ftBeacon*)(mac_buffer_tx+1);
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+typedef int8_t  s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
 
-        data_frame->fcf   = FCF_BEACON;
-        data_frame->seq   = macConfig.bsn++;
-        data_frame->panid = macConfig.panId;
-        data_frame->addr  = macConfig.shortAddress;
-
-        if(NODE_TYPE == ROUTER)
-            data_frame->superFrame = ROUTER_SUPERFRAME;
-        else
-            data_frame->superFrame = COORD_SUPERFRAME;
-
-        data_frame->netID = 0x06;
-        data_frame->hops = macConfig.hopsToCoord;
-
-        // send data to radio.
-        radioSendData(sizeof(ftBeacon), (u8 *)data_frame);
-    }
-#   endif
-}
+#endif //RUM_TYPES_H

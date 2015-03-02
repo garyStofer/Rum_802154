@@ -35,7 +35,8 @@
 /*============================ INCLUDE =======================================*/
 #include <stdint.h>
 #include "stdbool.h"
-#include "rum_types.h"
+
+#include "data_types.h"
 
 /*============================ MACROS ========================================*/
 #define RF230_REVA                              ( 1 )

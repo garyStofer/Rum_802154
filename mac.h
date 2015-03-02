@@ -146,8 +146,9 @@ macDataRequest()          --->       ftData       --->        macDataIndication(
 // Includes
 #include <stdint.h>
 #include <stdbool.h>
-#include "rum_types.h"
-
+#include "hal.h"
+#include <stdio.h>
+#include "data_types.h"
 
 
 #define RUM_VERSION                    "V0.9"
@@ -192,18 +193,6 @@ macDataRequest()          --->       ftData       --->        macDataIndication(
 #error "If DEBUG is set, then either SERIAL or OTA_DEBUG must be set"
 #endif
 
-/**
-   Flag to signify a "very low power" (VLP) node.  This type of node
-   uses a weak battery that cannot power the node for very long, or
-   some energy-harvesting power source.
-
-   This option is off by default
-
-   @ingroup mac
-*/
-#ifndef VLP
-#define VLP 0
-#endif
 
 // Demo mode -
 #ifndef DEMO
@@ -250,9 +239,8 @@ macDataRequest()          --->       ftData       --->        macDataIndication(
 
    @ingroup mac_associate
 */
-#ifndef PAN_ID
-  #define PAN_ID BROADCASTPANID
-#endif
+
+
 
 /**
    Define which data rate we are using (900MHz band only).
@@ -262,8 +250,7 @@ macDataRequest()          --->       ftData       --->        macDataIndication(
 #define DATA_RATE_212    BPSK_40
 
 
-#include "hal.h"
-#include <stdio.h>
+
 
 #if DEBUG
 extern char debugStr[100];
@@ -275,7 +262,7 @@ extern char dbg_buff[40];
     @{
     @name Pre-defined node types
 
-    See   NODETYPE for usage.
+    See   NODE_TYPE for usage.
     @{
 */
 
@@ -292,7 +279,7 @@ extern char dbg_buff[40];
 // Define whether we are a coordinator or not.
 // This affects compilation
 /**
-      NODETYPE is defined to be one of the three basic node
+      NODE_TYPE is defined to be one of the three basic node
     types: coordinator, router, or end node.
 
     This definition is used widely throughout the code to define the
@@ -300,7 +287,7 @@ extern char dbg_buff[40];
     there are many places in the code that look like this:
 
     @code
-    if (NODETYPE == COORD)
+    if (NODE_TYPE == COORD)
     {
       // Do something only the coordinator would do.
     }
@@ -310,19 +297,19 @@ extern char dbg_buff[40];
     inside the brackets for a router or end node, which saves on flash
     space.
 
-    To define the NODETYPE variable, define one of the following
+    To define the NODE_TYPE variable, define one of the following
     variables (as one) in the Makefile or AVR Studio project setting.
-	NODETYPE = ENDDEVICE
-    NODETYPE = ROUTER
-    NODETYPE = COORD
-    NODETYPE = BC_ENDDEVICE
+	NODE_TYPE = ENDDEVICE
+    NODE_TYPE = ROUTER
+    NODE_TYPE = COORD
+    NODE_TYPE = BC_ENDDEVICE
     @ingroup mac
 */
 
 
-#if ( NODETYPE!=ENDDEVICE &&  NODETYPE!=ROUTER &&  NODETYPE!=COORD && NODETYPE != BC_ENDDEVICE )
-// Warning - NODETYPE must be defined
-#error "You must #define  NODETYPE to one of ENDDEVICE, ROUTER, BC_ENDDEVICE or COORD to specify which"
+#if ( NODE_TYPE!=ENDDEVICE &&  NODE_TYPE!=ROUTER &&  NODE_TYPE!=COORD && NODE_TYPE != BC_ENDDEVICE )
+// Warning - NODE_TYPE must be defined
+#error "You must #define  NODE_TYPE to one of ENDDEVICE, ROUTER, BC_ENDDEVICE or COORD to specify which"
 #error "target you are compiling for. Use command line defines."
 #endif
 
@@ -430,7 +417,7 @@ typedef struct{
 #define PING_REQ_FRAME         2   ///< Ping request frame
 #define PING_RSP_FRAME         3   ///< Ping response frame
 #define DROP_CHILD_FRAME       4   ///< Frame sent to router to command it to drop a child from its table
-#define DATA_FRAME_6LOWPAN     5   ///< 6lowpan Data Frame
+#define DATA_UnusedFrame       5   ///<
 #define WAKE_NODE              6   ///< Wake up an end node
 #define DEBUG_FRAME            7   ///< Over-the air debug frame
 /** @} */
@@ -534,7 +521,7 @@ typedef struct{
     u64   srcAddr;       ///< Long MAC address of new node, sending this packet
     u8    cmd;           ///< MAC command byte, see   ASSOCIATION_REQUEST
     u16   parentAddr;    ///< Short address of new parent (should also be srcAddr)
-    u8    type;          ///< Node type of new node, see   NODETYPE
+    u8    type;          ///< Node type of new node, see   NODE_TYPE
 } __attribute__((packed)) ftAssocReqDirect;
 /** Indirect association request frame, forwarded from a router on up
     to the coordinator */
@@ -548,7 +535,7 @@ typedef struct{
     u8    cmd;           ///< MAC command byte, see   ASSOCIATION_REQUEST
     u16   parentAddr;    ///< Short address of new parent
     u64   macAddr;       ///< Long MAC address of new node
-    u8    type;          ///< Node type of new node, see   NODETYPE
+    u8    type;          ///< Node type of new node, see   NODE_TYPE
 } __attribute__((packed)) ftAssocReqIndirect;
 /** Direct association response frame, sent from the new parent
     (coordinator or router) to the new child node */
@@ -658,7 +645,7 @@ typedef struct{
 typedef struct{
     u64 longAddr;           ///< Long (MAC) address of this node
     bool associated;        ///< Is this node associated with a network?
-    uint8_t bsn;            ///< Beacon sequence number, incremented each time a beacon is sent
+    u8 bsn;           		 ///< Beacon sequence number, incremented each time a beacon is sent
     u8 dsn;                 ///< Data sequence number, incremented each time a data frame is sent
     u16 panId;              ///< The PAN ID for the network this node is associated with
     u16 shortAddress;       ///< The short address for this node

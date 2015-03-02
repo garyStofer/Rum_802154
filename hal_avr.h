@@ -2,6 +2,7 @@
 #ifndef HAL_AVR_H
 #define HAL_AVR_H
 /*============================ INCLUDE =======================================*/
+#include "System_config.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <avr/io.h>
@@ -9,10 +10,11 @@
 #include <util/crc16.h>
 #include <util/delay.h>
 #include <avr/eeprom.h>
-#include "rum_types.h"
 
-#define MINER_A   11
-#define MINER_B   12
+#include "data_types.h"
+
+
+
 
 /**
    The BAND macro is set to one particular band based
@@ -180,11 +182,10 @@
         #define LED_OFF(led)                Led##led##_off()
 
 
-        // Button macros
-        #define BUTTON_SETUP()
-        #define BUTTON_PRESSED() 0
-//        #define BUTTON_SETUP()          DDRB &= ~(1 << PB0), PORTB |= (1 << PB0)
-//        #define BUTTON_PRESSED()        (!(PINB & (1 << PB0)))
+        // Button macros  -- Used to bind the End/Router nodes - Or to reset the PAN_ID on the COORD
+        // PD4
+		#define BUTTON_SETUP()          DDRD &= ~(1 << PD4); PORTD |= (1 << PD4)
+        #define BUTTON_PRESSED()        (!(PIND & (1 << PD4)))
 #else
         #error PLATFORM undefined or incorrect value
 #endif
