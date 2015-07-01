@@ -23,8 +23,6 @@ such as sensor measurment rate and sleep state can be configured.
 
 The UART connection parameters are 38Kbd,8n1. Pressing the space bar shows the menu of commands.
 
-
-
 Jumpers on routers and end nodes:
 
 A jumper during the bootprocess between ECT2 P10 & 9 binds the Node to the nearest network. The PAN-ID 
@@ -37,6 +35,3 @@ The lower 12 bits of the MAC address are used for the Node ID field when a senso
 
 The MAC adress and therefore the sensors ID stays permanently with the device unless the chip is 
 completely erases with a programmer.
-
-
-

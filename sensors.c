@@ -309,7 +309,7 @@ sensorLostNetwork(void)
  void
 sensorSetReadingInterval(sftRequestData *req)
 {
-	if (req->time)
+	if (req->time != 0)
 	{
 		// For Sleeping nodes don't repeat faster than 1 second
 		if (NODE_SLEEP && req->time < 10)
@@ -317,8 +317,11 @@ sensorSetReadingInterval(sftRequestData *req)
 
 		EE_SetFrameInterval(req->time);
 
+		// need to terminate the current reading interval, so that the new time takes effect immediately
+		SensorSendReading();
+
 	}
-	else
+	else	//A zero in the reading interval puts a node into the sleeping mode
 	{
 		if (NODE_SLEEP)
 			macConfig.sleeping = true;
@@ -416,8 +419,8 @@ sensorRequestReading(u16 addr, u16 time)
 debugMsgStr("\r\nSending Reading-Interval-Request to node:");
 debugMsgInt(addr);
 debugMsgStr(" to:");
-debugMsgInt(time);
-debugMsgStr("00 ms\r\n");
+debugMsgInt(time/10);
+debugMsgStr(" Sec.\r\n");
 
 
 	macDataRequest(addr, sizeof(sftRequestData), (u8*)&req);
