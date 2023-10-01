@@ -23,10 +23,7 @@
 
 #define STORED_FRAMES 6  // Number of stored frames the COORD and Routers can keep for Sleeping nodes. Ideally one per sleeping end node
 
-// Two defines for my hardware platforms
-#define MINER_A   11
-#define MINER_B   12
-#define PLATFORM MINER_B
+
 
 
 #endif /* SYSTEM_CONFIG_H_ */

@@ -13,9 +13,6 @@
 
 #include "data_types.h"
 
-
-
-
 /**
    The BAND macro is set to one particular band based
    on which platform selected for compilation.  Do not manually set
@@ -27,168 +24,94 @@
 #define BAND900    1
 #define BAND2400   2
 
-/* Atmel Miner  */
-#if PLATFORM==MINER_A
+/* Atmel Miner-B pcb  */
 
-		#if (!defined(__AVR_ATmega324P__) )
+#if (! (defined(__AVR_ATmega324P__)  || defined(__AVR_ATmega644__)))
 
-                #error "Incorrect MCU for Platform! Check Makefile"
-        #endif
-
-		//HAS to be defined to be the actual Osc. freq. of the device, either internal RC or external Xtal
-		#define F_OSC 8000000L
-
-        /* ATMEGA324P */
-		// These SPI pins and ports are hardwired in the cpu.
-		// Must use these pins otherwise SPI will not function
-        #   define SPIPORT    B
-        #   define SSPIN      (0x04)
-        #   define MOSIPIN    (0x05)
-        #   define MISOPIN    (0x06)
-        #   define SCKPIN     (0x07)
-
-		// These pins and ports can be assigned
-		#	define RF_CHIP_DEVSEL	(4)	// must be on same port as SPI i.e. "B"
-        #   define RSTPORT    B
-        #   define RSTPIN     (0x01)
-        #   define SLPTRPORT  B
-        #   define SLPTRPIN   (0x03)
-        #   define USART      0
-  		#   define TICKTIMER  1			// 16 bit counter
-
- 		#   define RADIO_VECT INT2_vect  ///< Radio interrupt vector
-            /// Macro to enable the radio interrupt -- make sure the bits match the above int vector
-        #   define HAL_ENABLE_RADIO_INTERRUPT( ) EICRA |= 0x30, EIMSK |= 4
-            /// Macro to disable the radio interrupt
-        #   define HAL_DISABLE_RADIO_INTERRUPT( ) EICRA &= ~0x30, EIMSK &= ~4
-
-        // TODO using AREF Pin as input of VCC for now, but need to change AREF circuit to have cap instead
-        // Using Xtal/16 clock
-        #   define HAL_ADC_INIT()    ADMUX = 0, ADCSRA = 0xD4, DIDR0=0xff	// Mux and Ref, Enable and start a convsersion, Prescale = /16
-        #   define HAL_STOP_ADC()    ADCSRA &= ~0x80						// Disable, ADEN =0
-        #   define HAL_START_ADC()   ADCSRA |= (1 << ADSC) | (1 << ADIF) | (1 << ADEN)	//  Set SC,EN and clear IF
-        #   define HAL_WAIT_ADC()    while (!(ADCSRA & (1<<ADIF))) {;}; ADCSRA |= (1<<ADIF) // Wait for ADC IF and clear IF afterwards again
-
-        #   define HAL_READ_ADC()    ADC
-        #   define HAL_SELECT_ADC0()   ADMUX = (ADMUX & 0xF0)
-        #   define HAL_SELECT_ADC1()   ADMUX = (ADMUX & 0xF0) | 0x01
-        #   define HAL_SELECT_ADC2()   ADMUX = (ADMUX & 0xF0) | 0x02
-        #   define HAL_SELECT_ADC3()   ADMUX = (ADMUX & 0xF0) | 0x03
-        #   define HAL_SELECT_ADC4()   ADMUX = (ADMUX & 0xF0) | 0x04
-        #   define HAL_SELECT_ADC5()   ADMUX = (ADMUX & 0xF0) | 0x05
-        #   define HAL_SELECT_ADC6()   ADMUX = (ADMUX & 0xF0) | 0x06
-        #   define HAL_SELECT_ADC7()   ADMUX = (ADMUX & 0xF0) | 0x07
-
-	    #   define BAND BAND900
-
-        #define Leds_init()               (DDRD  |=  0x18)
-        #define Leds_on()                 (PORTD |=  0x18)
-        #define Leds_off()                (PORTD &= ~0x18)
-       
-	    #define Led0_on()                 (PORTD |= 0x10)
-        #define Led1_on()                 (PORTD |= 0x8)
-        
-        #define Led0_off()                (PORTD &= ~0x10)
-        #define Led1_off()                (PORTD &= ~0x8)
-
-        #define Led0_toggle()             (PIND |= 0x10)
-        #define Led1_toggle()             (PIND |= 0x8)
-    
-        // LED Macros
-        #define LED_INIT()                  Leds_init()
-        // LED_ON(led), where led doesn't matter - there is only one LED on the board.
-        #define LED_ON(led)                 Led##led##_on()
-        #define LED_OFF(led)                Led##led##_off()
-
-
-        // Button macros
-        #define BUTTON_SETUP()
-        #define BUTTON_PRESSED() 0
-//        #define BUTTON_SETUP()          DDRB &= ~(1 << PB0), PORTB |= (1 << PB0)
-//        #define BUTTON_PRESSED()        (!(PINB & (1 << PB0)))
-#elif PLATFORM==MINER_B
-		#if (! (defined(__AVR_ATmega324P__)  || defined(__AVR_ATmega644__)))
-
-                #error "Incorrect MCU for Platform! Check Makefile"
-        #endif
-
-		//HAS to be defined to be the actual Osc. freq. of the device, either internal RC or external Xtal
-		#define F_OSC 8000000L
-
-        /* ATMEGA324P */
-		// These SPI pins and ports are hardwired in the cpu.
-		// Must use these pins otherwise SPI will not function
-		#   define SPIPORT    B
-        #   define SSPIN      (4)
-        #   define MOSIPIN    (5)
-        #   define MISOPIN    (6)
-        #   define SCKPIN     (7)
-
-		// These pins and ports can be assigned
-		#define RF_CHIP_DEVSEL	(0)	// must be on same port as SPI i.e. "B"
-
-        #   define RSTPORT    B
-        #   define RSTPIN     (3)
-        #   define SLPTRPORT  B
-        #   define SLPTRPIN   (1)
-
-        #   define USART      0
-  		#   define TICKTIMER  1			// 16 bit counter
-
- 		#   define RADIO_VECT INT2_vect  ///< Radio interrupt vector
-            /// Macro to enable the radio interrupt -- make sure the bits matche the above int vector
-        #   define HAL_ENABLE_RADIO_INTERRUPT( ) EICRA |= 0x30, EIMSK |= 4
-            /// Macro to disable the radio interrupt
-        #   define HAL_DISABLE_RADIO_INTERRUPT( ) EICRA &= ~0x30, EIMSK &= ~4
-
-
-		// Mux=0 and Ref=internal 2.56V, Enable and start a convsersion, clock Prescale = /16
-        #   define HAL_ADC_INIT()    ADMUX = 0xc0, ADCSRA = 0xD4, DIDR0=0xff	// Mux=0 and Ref=internal 2.56V, Enable and start a convsersion, Prescale = /16
-        #   define HAL_STOP_ADC()    ADCSRA &= ~0x80						// Disable, ADEN =0
-        #   define HAL_START_ADC()   ADCSRA |= (1 << ADSC) | (1 << ADIF) | (1 << ADEN)	//  Set SC,EN and clear IF
-        #   define HAL_WAIT_ADC()    while (!(ADCSRA & (1<<ADIF))) {;}; ADCSRA |= (1<<ADIF) // Wait for ADC IF and clear IF afterwards again
-
-        #   define HAL_READ_ADC()      ADC
-        #   define HAL_SELECT_ADC0()   ADMUX = (ADMUX & 0xE0)
-        #   define HAL_SELECT_ADC1()   ADMUX = (ADMUX & 0xE0) | 0x01
-        #   define HAL_SELECT_ADC2()   ADMUX = (ADMUX & 0xE0) | 0x02
-        #   define HAL_SELECT_ADC3()   ADMUX = (ADMUX & 0xE0) | 0x03
-        #   define HAL_SELECT_ADC4()   ADMUX = (ADMUX & 0xE0) | 0x04
-        #   define HAL_SELECT_ADC5()   ADMUX = (ADMUX & 0xE0) | 0x05
-        #   define HAL_SELECT_ADC6()   ADMUX = (ADMUX & 0xE0) | 0x06
-        #   define HAL_SELECT_ADC7()   ADMUX = (ADMUX & 0xE0) | 0x07
-		#   define HAL_SELECT_1_1V()   ADMUX = (ADMUX & 0xE0) | 0x1E
-		#	define HAL_SELECT_GND()    ADMUX = (ADMUX & 0xE0) | 0x1F
-
-	    #   define BAND BAND900
-
-        #define Leds_init()               (DDRD  |=  0x0c)
-        #define Leds_on()                 (PORTD |=  0x0c)
-        #define Leds_off()                (PORTD &= ~0x0c)
-
-	    #define Led0_on()                 (PORTD |= 0x08)
-        #define Led1_on()                 (PORTD |= 0x04)
-
-        #define Led0_off()                (PORTD &= ~0x08)
-        #define Led1_off()                (PORTD &= ~0x04)
-
-        #define Led0_toggle()             (PIND |= 0x08)
-        #define Led1_toggle()             (PIND |= 0x04)
-
-        // LED Macros
-        #define LED_INIT()                  Leds_init()
-        // LED_ON(led), where led doesn't matter - there is only one LED on the board.
-        #define LED_ON(led)                 Led##led##_on()
-        #define LED_OFF(led)                Led##led##_off()
-
-
-        // Button macros  -- Used to bind the End/Router nodes - Or to reset the PAN_ID on the COORD
-        // PD4
-		#define BUTTON_SETUP()          DDRD &= ~(1 << PD4); PORTD |= (1 << PD4)
-        #define BUTTON_PRESSED()        (!(PIND & (1 << PD4)))
-#else
-        #error PLATFORM undefined or incorrect value
+		#error "Incorrect MCU for Platform! Check Makefile or project settings"
 #endif
+
+//HAS to be defined to be the actual Osc. freq. of the device, either internal RC or external Xtal
+#define F_OSC 8000000L
+
+/* ATMEGA324P */
+// These SPI pins and ports are hardwired in the cpu.
+// Must use these pins otherwise SPI will not function
+#   define SPIPORT    B
+#   define SSPIN      (4)
+#   define MOSIPIN    (5)
+#   define MISOPIN    (6)
+#   define SCKPIN     (7)
+
+// These pins and ports can be assigned
+#define RF_CHIP_DEVSEL	(0)	// must be on same port as SPI i.e. "B"
+
+#   define RSTPORT    B
+#   define RSTPIN     (3)
+#   define SLPTRPORT  B
+#   define SLPTRPIN   (1)
+
+#   define USART      0
+#   define TICKTIMER  1			// 16 bit counter
+
+#   define RADIO_VECT INT2_vect  ///< Radio interrupt vector
+	/// Macro to enable the radio interrupt -- make sure the bits matche the above int vector
+#   define HAL_ENABLE_RADIO_INTERRUPT( ) EICRA |= 0x30, EIMSK |= 4
+	/// Macro to disable the radio interrupt
+#   define HAL_DISABLE_RADIO_INTERRUPT( ) EICRA &= ~0x30, EIMSK &= ~4
+
+
+// Mux=0 and Ref=internal 2.56V, Enable and start a convsersion, clock Prescale = /16
+#   define HAL_ADC_INIT()    ADMUX = 0xc0, ADCSRA = 0xD4, DIDR0=0xff	// Mux=0 and Ref=internal 2.56V, Enable and start a convsersion, Prescale = /16
+#   define HAL_STOP_ADC()    ADCSRA &= ~0x80						// Disable, ADEN =0
+#   define HAL_START_ADC()   ADCSRA |= (1 << ADSC) | (1 << ADIF) | (1 << ADEN)	//  Set SC,EN and clear IF
+#   define HAL_WAIT_ADC()    while (!(ADCSRA & (1<<ADIF))) {;}; ADCSRA |= (1<<ADIF) // Wait for ADC IF and clear IF afterwards again
+
+#   define HAL_READ_ADC()      ADC
+#   define HAL_SELECT_ADC0()   ADMUX = (ADMUX & 0xE0)
+#   define HAL_SELECT_ADC1()   ADMUX = (ADMUX & 0xE0) | 0x01
+#   define HAL_SELECT_ADC2()   ADMUX = (ADMUX & 0xE0) | 0x02
+#   define HAL_SELECT_ADC3()   ADMUX = (ADMUX & 0xE0) | 0x03
+#   define HAL_SELECT_ADC4()   ADMUX = (ADMUX & 0xE0) | 0x04
+#   define HAL_SELECT_ADC5()   ADMUX = (ADMUX & 0xE0) | 0x05
+#   define HAL_SELECT_ADC6()   ADMUX = (ADMUX & 0xE0) | 0x06
+#   define HAL_SELECT_ADC7()   ADMUX = (ADMUX & 0xE0) | 0x07
+#   define HAL_SELECT_1_1V()   ADMUX = (ADMUX & 0xE0) | 0x1E
+#	define HAL_SELECT_GND()    ADMUX = (ADMUX & 0xE0) | 0x1F
+
+#   define BAND BAND900
+
+#define MSG_LED_INIT() 	(DDRD |= 0x80) // PD7 as output
+#define MSG_LED_ON()	(PORTD |= 0x80)
+#define MSG_LED_OFF()   (PORTD &= ~0x80)
+#define MSG_LED_TOGG()  (PIND |= 0x80)
+
+
+#define Leds_init()               (DDRD  |=  0x0c)
+#define Leds_on()                 (PORTD |=  0x0c)
+#define Leds_off()                (PORTD &= ~0x0c)
+
+#define Led0_on()                 (PORTD |= 0x08)
+#define Led1_on()                 (PORTD |= 0x04)
+
+#define Led0_off()                (PORTD &= ~0x08)
+#define Led1_off()                (PORTD &= ~0x04)
+
+#define Led0_toggle()             (PIND |= 0x08)
+#define Led1_toggle()             (PIND |= 0x04)
+
+// LED Macros
+#define LED_INIT()                  Leds_init()
+// LED_ON(led), where led doesn't matter - there is only one LED on the board.
+#define LED_ON(led)                 Led##led##_on()
+#define LED_OFF(led)                Led##led##_off()
+
+
+// Button macros  -- Used to bind the End/Router nodes - Or to reset the PAN_ID on the COORD
+// PD4
+#define BUTTON_SETUP()          DDRD &= ~(1 << PD4); PORTD |= (1 << PD4)
+#define BUTTON_PRESSED()        (!(PIND & (1 << PD4)))
+
 
 #if (F_CPU > F_OSC)
 #error "CPU frequency can not be higher than Osc frequency";

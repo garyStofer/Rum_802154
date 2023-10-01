@@ -1,0 +1,4 @@
+In Eclipse the fuses get programmed via command line arguments to AVRDUDE when the project gets uploaded to the target.
+
+The fuse bytes are visible under "Project Properties; C/C++ Build; Settings;" under Tool Settings;AVRDUDE
+The command line options for AVRDUDE is set under "Project Properties"; "C/C++ BUILD";"Environment" variable "AVERDUDEACTIONOPTIONS"

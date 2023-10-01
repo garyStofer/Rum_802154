@@ -86,7 +86,7 @@ Clear_EEprom()
         eeprom.args[1] = 0;
         eeprom.args[2] = 0;
         eeprom.args[3] = 0;
-        eeprom.SensorframeInterval = 50; // 5 seconds
+        eeprom.SensorframeInterval = 5; // 0.5 seconds
         halPutEeprom(0, sizeof(eeprom), (u8*) &eeprom);
 }
 // to force an EEPROM clear every time the thing boots
@@ -126,7 +126,7 @@ checkEEprom(void)
         // check sensor send interval from  EEPROM not being ffff
         if (EE_GetFrameInterval() == 0xffff)
         {
-			EE_SetFrameInterval(20); 	// and make it 2seconds
+			EE_SetFrameInterval(5); 	// and make it 0.5 seconds
         }
 
 }

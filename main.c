@@ -52,11 +52,13 @@ Device_init()
 {
     halSetupClock();
 
-	LED_INIT(); 
+	LED_INIT(); 	// PD2 and PD3
+	MSG_LED_INIT(); //  PD7
 	
 	// Init the button
-    BUTTON_SETUP();
+    BUTTON_SETUP(); //PD4
 
+    // Also PD5 is used as input in Coord for selection of UART output format -- Human/machine
 	// Init the timer system for the MAC
     timerInit();
 
@@ -94,14 +96,15 @@ int main(void)
 
 	// If the EEPROM is cleared, initialize it to something useful
 	checkEEprom();
-
+// EE_SetFrameInterval(1); 	// and make it 0.1 seconds
 	// Init the mac and stuff
 #if (NODE_TYPE == COORD)
 	{
 		debugMsgStr("\r\nStartup: as Coordinator");
 		DDRD &= ~(1 << PD5); PORTD |= (1 << PD5);  // Make PD5 a pulled up input to switch between human and machine interface on UART port
 
-		if (BUTTON_PRESSED() )		// This creates a new PAN_ID all Children have to bind again
+		// BIND button
+		if (BUTTON_PRESSED() )		// This creates a new PAN_ID , and all Children have to bind again
 		{
 			Led1_on();
 			EE_SetPanID(0xffff);
@@ -113,11 +116,15 @@ int main(void)
 		macFindClearChannel();	// appClearChanFound() will be called which calls  macStartCoord(void);
 	}
 #else
+	debugMsgStr("\r\nStartup: as Device");
+
+	// BIND BUTTON
 	if (BUTTON_PRESSED() )
 	{
+		debugMsgStr("\r\nClearing PAN_ID -- BINDING to new..");
 		Led1_on();
-		EE_SetPanID(0xffff);
-		EE_SetFrameInterval(50);		// initialize sending of readings every 5 Seconds
+		EE_SetPanID(0xffff);			// This binds to a new PAN ID
+		EE_SetFrameInterval(5);		// initialize sending of readings every 0.5 Seconds
 		while (BUTTON_PRESSED())
 			;
 		Led1_off();

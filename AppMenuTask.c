@@ -238,7 +238,7 @@ appMenu(void)
 	// perform periodical things.
 
 #if (SERIAL)
-	if (NODE_TYPE == COORD && 	(PIND & (1 << PD5)))	// Machine interface
+	if (NODE_TYPE == COORD && 	(PIND & (1 << PD5)))	// Machine interface -- Pull PD5 to gnd for human if
 	{
 		char ch;
 

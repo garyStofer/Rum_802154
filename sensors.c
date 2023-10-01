@@ -62,7 +62,7 @@
  contains the node name.)
    @endverbatim
 
-     contdata Sending data continuously
+     constdata Sending data continuously
 
    When the sensorRequestReading() function is called on the
    coordinator, the sensor node is directed to report data
@@ -139,7 +139,7 @@ SensorStartReadings(void)
 	// based on the Sensor frame interval stored in the EEPROM
 	if (EE_GetFrameInterval())
 	{
-		 sendReadingTimer = macSetAlarm(10, SensorSendReading);// Start the first reading in 1 second
+		 sendReadingTimer = macSetAlarm(1, SensorSendReading);// Start the first reading in .1 second
 	}
 
 }
@@ -179,9 +179,9 @@ sensorSleep(void)
 	SensorSendReading();
 
 
-#endif
-}
 
+}
+#endif
 /**
    Send a single reading to the coordinator and go to sleep if
    required.
@@ -241,7 +241,7 @@ sensorPacketSendSucceed(void)	// This gets called from appPacketSendSucceed()
     	debugMsgStr("\r\n Sensor Readings turned off ");
     	return;
     }
-
+#if( NODE_SLEEP && (NODE_TYPE == ENDDEVICE) )
     // Sleep or wait for the interval, then send again
     if (macConfig.sleeping)
     {
@@ -253,6 +253,7 @@ sensorPacketSendSucceed(void)	// This gets called from appPacketSendSucceed()
         // SensorSendReading again to continue the reading loop
     }
 	else	// no sleeping, just wait for the interval time and send again
+#endif
     {
         if (interval <= 650)
             // Less than 65 seconds
@@ -280,7 +281,7 @@ sensorPacketSendFailed(void)
 
     SentReading_pendingAck = 0;
 
-    // Wait a bit and try again.
+    // Wait 5 seconds and try again.
 //    macTimerKill(sendReadingTimer);
     sendReadingTimer = macSetAlarm(RETRY_WAIT_PERIOD, SensorSendReading);
 }
@@ -527,7 +528,7 @@ CoordRcvSensorPacket(u8 *frame, u8 len )
 	debugMsgStr(" -- CoordRcvSensorPacket");
 #endif
     // Sensor frame type is always first byte of frame
-
+	MSG_LED_TOGG();
 	switch (((sftRequest*)frame)->type)
 	{
         case READING_FRAME:
