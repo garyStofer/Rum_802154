@@ -1,0 +1,39 @@
+
+IDE : AtmelStudio6.2
+
+Target Device type:
+The COORD node needs to be compiled for a ATMEL644 chip because the RAM requirement, all other nodes can be run on a ATMEl 344P or a 644
+ Chips with suffix P indicate "PicoPower" and are to be used for devices on battery power that sleep most of the time.
+ Atmelstudio does not allow the device type to be set in the build configuration, but rather in the project itself. file hal_avr.h checks
+ for the correct device type at compile time.
+ 
+Studio 6 Builod Configuations: Studio has a weird concept of having build configurations that belong to the project only and configs
+	that belong to the solution AND the project. When creating new configurations they need to be created by the "add" in the solution 
+	(topmost choice list) of the Configuration Manager and the checkbox "Create a project configuration" needs to be checked as well.
+	
+Settin Active Build Configuration:
+		Go into configuration  Manager and either choose a new configuration under the "Active Solution Configuration" or choose a new config
+		under "Project contexts" and  close the dialog.
+
+Build:  Build Solution and Build Project seems to do the same since there is only one project with multiple configs in the solution. 
+	It does not seem to be possible to batch build all the configurations in one step. Build is done with the internal build tool.
+
+Toolchain and Library: (as installed via the Studio6 installer)
+	C:\Program Files\Atmel\Atmel Toolchain\AVR8 GCC\Native\3.4.1061\avr8-gnu-toolchain\avr\include
+	C:\Program Files\Atmel\Atmel Toolchain\AVR8 GCC\Native\3.4.1061\avr8-gnu-toolchain\lib\gcc\avr\4.8.1\include
+
+Two files in avr/include needed changeing to make the code compile under this newer toolchain:
+	C:\Program Files\Atmel\Atmel Toolchain\AVR8 GCC\Native\3.4.1061\avr8-gnu-toolchain\avr\include\avr\iom324p.h
+	C:\Program Files\Atmel\Atmel Toolchain\AVR8 GCC\Native\3.4.1061\avr8-gnu-toolchain\avr\include\avr\iomxx4.h 
+	These two modified files are copied to the project folder under the folder LIBfix but are not included in the project build at that location. 
+	They need to be copied back to the original path on a new IDE installtion.
+
+Fuses:  Atmelstudio Configurations dont hold the fuse and lockbit settings, they need to be specified in the programming GUI 
+	under tools/Device Programming -- Fuses to be used are E2, B1,FD (low,high,ext)
+
+Programming the boards : JtagICEmkII JTAG mode. Device has to be set manually in the programmer as it does not carry over from the 
+	uild configurations. File hal_avr.h has checks to make sure the correct chip is used at compile time.
+	
+The files measure.c and measure.h in folder Sensor have been copied to t ../Sensor but excluded there from the build so that the 
+Debugger and codecompletion tool can work with them. 
+

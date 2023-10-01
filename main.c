@@ -96,7 +96,10 @@ int main(void)
 
 	// If the EEPROM is cleared, initialize it to something useful
 	checkEEprom();
-// EE_SetFrameInterval(1); 	// and make it 0.1 seconds
+	
+// force an update interval 	
+// EE_SetFrameInterval(10); 	// and make it 1 seconds
+
 	// Init the mac and stuff
 #if (NODE_TYPE == COORD)
 	{

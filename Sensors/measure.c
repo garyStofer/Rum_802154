@@ -113,7 +113,7 @@ Measure_Vbat_highV(  sftSensorReading *reading)
 	HAL_START_ADC();
 	HAL_WAIT_ADC();
 	val = (float) HAL_READ_ADC() ;
-	val *= 2.5e-3;		// in volts -- using 2.56V internal ref and x1 gain
+	val *= 2.56e-3;		// in volts -- using 2.56V internal ref and x1 gain
 	val *=16;			// Voltage divider 16:1
 	reading->readings[0]= val;
 }

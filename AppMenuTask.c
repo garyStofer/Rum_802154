@@ -74,7 +74,7 @@ static const char R_40[] PROGMEM="CSMA_SEED_0";
 static const char R_41[] PROGMEM="CSMA_SEED_1";
 static const char R_42[] PROGMEM="CSMA_BE";
 
-static char * rf2xx_reg_names[] PROGMEM = {R_1, R_2, R_3, R_4, R_5, R_6, R_7, R_8, R_9, R_10,
+static char * rf2xx_reg_names[]  = {R_1, R_2, R_3, R_4, R_5, R_6, R_7, R_8, R_9, R_10,
 							 R_11, R_12, R_13, R_14, R_15, R_16, R_17, R_18, R_19, R_20,
 							 R_21, R_22, R_23, R_24, R_25, R_26, R_27, R_28, R_29, R_30,
 							 R_31, R_32, R_33, R_34, R_35, R_36, R_37, R_38, R_39, R_40,
@@ -85,7 +85,7 @@ static char * rf2xx_reg_names[] PROGMEM = {R_1, R_2, R_3, R_4, R_5, R_6, R_7, R_
            rf2xx_reg_dump() is called.  See the radio datasheet for
            details.
 */
-static u8 rf2xx_reg_enum[] PROGMEM =
+const static u8 rf2xx_reg_enum[] PROGMEM =
     {RG_TRX_STATUS, RG_TRX_STATE, RG_TRX_CTRL_0, RG_TRX_CTRL_1, RG_PHY_TX_PWR,
      RG_PHY_RSSI, RG_PHY_ED_LEVEL, RG_PHY_CC_CCA, RG_CCA_THRES, RG_TRX_CTRL_2, RG_IRQ_MASK,
      RG_IRQ_STATUS, RG_VREG_CTRL, RG_BATMON, RG_XOSC_CTRL, RG_RX_SYN, RG_RF_CTRL_0, RG_XAH_CTRL_1,

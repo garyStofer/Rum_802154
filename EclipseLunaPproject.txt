@@ -1,1 +1,0 @@
-The folder .metadata contains the Eclipse Luna Project files.
